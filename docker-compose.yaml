@@ -1,9 +1,7 @@
-version: '3.9'
-
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: postgres_container
+    container_name: tickets-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -16,10 +14,12 @@ services:
       resources:
         limits:
           cpus: '0.25'
-          memory: 192M
+          memory: 256M
         reservations:
           cpus: '0.1'
           memory: 128M
+    cpus: 0.25
+    mem_limit: 256m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 30s
@@ -31,7 +31,7 @@ services:
 
   app:
     build: .
-    container_name: app_container
+    container_name: tickets-app
     env_file: .env
     depends_on:
       postgres:
