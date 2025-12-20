@@ -22,13 +22,10 @@ logger = structlog.get_logger(__name__)
 
 
 class TicketBot:
-    CANCEL_KEYWORDS = r"^(Отмена|отмена)$"
-    ADD_TICKET_KEYWORDS = r"^(Ещё один билет|eщё один билет)$"
+    CANCEL_KEYWORDS = filters.Regex(r"^(Отмена|отмена)$")
+    ADD_TICKET_KEYWORDS = filters.Regex(r"^(Ещё один билет|eщё один билет)$")
     TEXT_FILTER = (
-        filters.TEXT
-        & ~filters.COMMAND
-        & ~filters.Regex(CANCEL_KEYWORDS)
-        & ~filters.Regex(ADD_TICKET_KEYWORDS)
+        filters.TEXT & ~filters.COMMAND & ~CANCEL_KEYWORDS & ~ADD_TICKET_KEYWORDS
     )
 
     def __init__(self, token: str) -> None:
@@ -182,8 +179,8 @@ class TicketBot:
         handlers = [
             CommandHandler("start", start),
             MessageHandler(self.TEXT_FILTER, enter_ticket_data),
-            MessageHandler(filters.Regex(self.CANCEL_KEYWORDS), cancel),
-            MessageHandler(filters.Regex(self.ADD_TICKET_KEYWORDS), add_ticket),
+            MessageHandler(self.CANCEL_KEYWORDS, cancel),
+            MessageHandler(self.ADD_TICKET_KEYWORDS, add_ticket),
         ]
 
         for handler in handlers:
