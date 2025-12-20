@@ -86,7 +86,7 @@ class TicketRequestRepository:
     ) -> None:
         query = sql.SQL("""
                         UPDATE ticket_requests
-                        SET is_active = FALSE
+                        SET is_active = FALSE, updated_at = NOW()
                         WHERE departure_station = %s AND arrival_station = %s AND travel_date = %s AND travel_time = %s AND chat_id = %s
                         """)
         with self._db.connection.cursor() as cursor:
@@ -96,10 +96,11 @@ class TicketRequestRepository:
                 f"Request: Departure {departure} Arrival {arrival} Date {date} Time {time} set inactive successfully"
             )
 
-    def set_request_inactive_by_chat_id(self, chat_id: int) -> int:
+    def set_requests_inactive_by_chat_id(self, chat_id: int) -> int:
         query = sql.SQL("""
                         UPDATE ticket_requests
-                        SET is_active = FALSE
+                        SET is_active = FALSE,
+                            updated_at = NOW()
                         WHERE chat_id = %s AND is_active = TRUE
                         """)
         with self._db.connection.cursor() as cursor:
