@@ -29,9 +29,17 @@ class TicketRequestRepository:
                                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                                )
                            """)
+            cursor.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_ticket_requests_active_unique
+                    ON ticket_requests (departure_station, arrival_station, travel_date, travel_time, chat_id)
+                    WHERE is_active = TRUE
+                """
+            )
             self._db.connection.commit()
             logger.info(
-                f"Table ticket_requests created successfully in database {self._db.connection.dsn}"
+                "Table ticket_requests created successfully in database %s",
+                self._db.connection.dsn,
             )
 
     def add_request(
@@ -44,11 +52,23 @@ class TicketRequestRepository:
         user_id: int,
         user_name: str,
     ) -> None:
-        query = sql.SQL("""
-                        INSERT INTO ticket_requests
-                        (departure_station, arrival_station, travel_date, travel_time, chat_id, user_id, user_name, is_active)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE)
-                        """)
+        query = sql.SQL(
+            """
+            INSERT INTO ticket_requests
+            (departure_station,
+             arrival_station,
+             travel_date,
+             travel_time,
+             chat_id,
+             user_id,
+             user_name,
+             is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE)
+            ON CONFLICT (departure_station, arrival_station, travel_date, travel_time, chat_id)
+            WHERE is_active = TRUE
+            DO NOTHING
+            """
+        )
 
         with self._db.connection.cursor() as cursor:
             cursor.execute(
@@ -61,7 +81,7 @@ class TicketRequestRepository:
             )
             return None
 
-    def get_active_requests(self) -> list[dict]:  # type: ignore
+    def get_active_requests(self) -> list[dict]:
         query = sql.SQL("""SELECT id,
                                   departure_station,
                                   arrival_station,
@@ -74,6 +94,20 @@ class TicketRequestRepository:
                            WHERE is_active = TRUE""")
         with self._db.connection.cursor() as cursor:
             cursor.execute(query)
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_active_requests_by_chat_id(self, chat_id: int) -> list[dict]:
+        query = sql.SQL("""SELECT id,
+                                  departure_station,
+                                  arrival_station,
+                                  travel_date,
+                                  travel_time,
+                                  created_at
+                           FROM ticket_requests
+                           WHERE chat_id = %s AND is_active = TRUE
+                        """)
+        with self._db.connection.cursor() as cursor:
+            cursor.execute(query, (chat_id,))
             return [dict(row) for row in cursor.fetchall()]
 
     def set_request_inactive(

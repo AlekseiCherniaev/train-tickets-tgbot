@@ -15,16 +15,23 @@ from app.messages import (
     start_finding_tickets_message,
     CANCEL_TICKETS_TEXT,
     ADD_TICKET_TEXT,
+    SEE_ALL_TICKETS_TEXT,
+    see_all_tickets_message,
 )
 from app.ticket_parser import TicketParser
-from app.utils import make_get_request, validate_time_input, get_example_routes_str
+from app.utils import (
+    make_get_request,
+    validate_time_input,
+    get_example_routes_str,
+    format_created_at_minsk,
+)
 
 logger = structlog.get_logger(__name__)
 
 
 def get_reply_markup() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        [[CANCEL_TICKETS_TEXT], [ADD_TICKET_TEXT]],
+        [[CANCEL_TICKETS_TEXT], [ADD_TICKET_TEXT], [SEE_ALL_TICKETS_TEXT]],
         resize_keyboard=True,
         is_persistent=True,
         input_field_placeholder="Введите маршрут: Откуда Куда Дата Время",
@@ -141,3 +148,31 @@ async def add_another_ticket_handler(
         user_id=update.effective_user.id,
         chat_id=update.message.chat_id,
     ).debug(f"User {update.effective_user.id} add ticket")
+
+
+async def see_active_tickets_handler(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    ticket_repo: TicketRequestRepository = context.bot_data["ticket_repo"]
+    active_tickets = ticket_repo.get_active_requests_by_chat_id(
+        chat_id=update.message.chat_id
+    )
+    if not active_tickets:
+        tickets_str = "Нет активных поисков"
+    else:
+        tickets_str = "".join(
+            (
+                f"{i}. {t['departure_station']} -> {t['arrival_station']}\n"
+                f"{t['travel_date']} {str(t['travel_time'])[:5]}\n"
+                f"Добавлен: {format_created_at_minsk(t['created_at'])}\n"
+            )
+            for i, t in enumerate(active_tickets, start=1)
+        )
+    await update.message.reply_html(
+        f"{see_all_tickets_message}{tickets_str}",
+        reply_markup=get_reply_markup(),
+    )
+    logger.bind(
+        user_id=update.effective_user.id,
+        chat_id=update.message.chat_id,
+    ).debug(f"User {update.effective_user.id} see all tickets")

@@ -19,8 +19,17 @@ from app.settings import settings
 logger = structlog.get_logger(__name__)
 
 
+MINSK_TZ = ZoneInfo("Europe/Minsk")
+
+
+def format_created_at_minsk(value: datetime) -> str:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=datetime.UTC)
+    return value.astimezone(MINSK_TZ).strftime("%H:%M %d-%m-%Y")
+
+
 def get_minsk_date() -> datetime.date:
-    return (datetime.datetime.now(ZoneInfo("Europe/Minsk"))).date()
+    return (datetime.datetime.now(MINSK_TZ)).date()
 
 
 def get_example_routes_str():
@@ -78,7 +87,7 @@ def validate_time_input(date_str: str, time_str: str, chat_id: int) -> bool:
     except ValueError:
         return False
 
-    minsk_now = datetime.datetime.now(ZoneInfo("Europe/Minsk"))
+    minsk_now = datetime.datetime.now(MINSK_TZ)
     current_date = minsk_now.date()
     current_time = minsk_now.time()
     if input_date < current_date or (

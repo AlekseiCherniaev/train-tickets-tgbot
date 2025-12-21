@@ -1,7 +1,9 @@
 CANCEL_TICKETS_TEXT = "Отменить все поиски"
 ADD_TICKET_TEXT = "Добавить билет"
+SEE_ALL_TICKETS_TEXT = "Просмотреть активные поиски"
 CANCEL_BUTTON = f"^{CANCEL_TICKETS_TEXT}"
 ANOTHER_TICKET_BUTTON = f"^{ADD_TICKET_TEXT}"
+SEE_ALL_TICKETS_BUTTON = f"^{SEE_ALL_TICKETS_TEXT}"
 
 target_block_not_found_error_message = (
     "❌ Ошибка при проверке билетов {} → {}\n"
@@ -68,3 +70,5 @@ add_ticket_message = (
     "<b>Откуда  Куда  Дата(ГГГГ-ММ-ДД)  Время(ЧЧ:ММ)</b>\n\n"
     "🔹 <b>Пример (можно скопировать):</b>\n"
 )
+
+see_all_tickets_message = "🔍 <b>Текущие поиски:</b>\n"
