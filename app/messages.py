@@ -77,4 +77,4 @@ add_ticket_message = (
 
 see_all_tickets_message = "🔍 <b>Текущие поиски:</b>\n"
 
-favorite_tickets_message = "💖 <b>Ваши избранные маршруты:</b>\n"
+favorite_tickets_message = "💖 <b>Ваши избранные маршруты (можно скопировать):</b>\n"

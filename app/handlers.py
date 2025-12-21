@@ -60,10 +60,8 @@ def make_add_favorite_inline_markup(request_id: int) -> InlineKeyboardMarkup:
 def get_reply_markup() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
-            [ADD_TICKET_TEXT],
-            [SEE_ALL_TICKETS_TEXT],
-            [CANCEL_TICKETS_TEXT],
-            [FAVORITE_TICKETS_TEXT],
+            [ADD_TICKET_TEXT, SEE_ALL_TICKETS_TEXT],
+            [CANCEL_TICKETS_TEXT, FAVORITE_TICKETS_TEXT],
         ],
         resize_keyboard=True,
         is_persistent=True,
@@ -259,7 +257,7 @@ async def get_favorite_tickets_handler(
     else:
         fav_tickets_str = "".join(
             (
-                f"<code>{t['departure_station']} {t['arrival_station']} {str(get_minsk_date())[:-2]}__ {str(t['travel_time'])[:5]}</code>\n"
+                f"<code>{t['departure_station']} {t['arrival_station']} {str(get_minsk_date())[:-2]}__ {str(t['travel_time'])[:5]}</code>\n\n"
             )
             for t in fav_tickets
         )
