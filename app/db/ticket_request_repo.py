@@ -2,6 +2,7 @@ import structlog
 from psycopg2 import sql
 
 from app.db.database_connection import PostgresDatabaseConnection
+from app.settings import settings
 
 logger = structlog.get_logger(__name__)
 
@@ -29,11 +30,28 @@ class TicketRequestRepository:
                                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                                )
                            """)
+            cursor.execute("""
+                           CREATE TABLE IF NOT EXISTS favorite_tickets
+                           (
+                               id SERIAL PRIMARY KEY,
+                               departure_station VARCHAR(100) NOT NULL,
+                               arrival_station VARCHAR(100) NOT NULL,
+                               travel_time TIME NOT NULL,
+                               user_id BIGINT NOT NULL,
+                               created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                               )
+                           """)
             cursor.execute(
                 """
                 CREATE UNIQUE INDEX IF NOT EXISTS ux_ticket_requests_active_unique
                     ON ticket_requests (departure_station, arrival_station, travel_date, travel_time, chat_id)
                     WHERE is_active = TRUE
+                """
+            )
+            cursor.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_favorite_tickets_unique
+                    ON favorite_tickets (departure_station, arrival_station, travel_time, user_id)
                 """
             )
             self._db.connection.commit()
@@ -51,7 +69,7 @@ class TicketRequestRepository:
         chat_id: int,
         user_id: int,
         user_name: str,
-    ) -> None:
+    ) -> int | None:
         query = sql.SQL(
             """
             INSERT INTO ticket_requests
@@ -66,7 +84,8 @@ class TicketRequestRepository:
             VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE)
             ON CONFLICT (departure_station, arrival_station, travel_date, travel_time, chat_id)
             WHERE is_active = TRUE
-            DO NOTHING
+            DO UPDATE SET updated_at = NOW()
+            RETURNING id
             """
         )
 
@@ -74,12 +93,44 @@ class TicketRequestRepository:
             cursor.execute(
                 query, (departure, arrival, date, time, chat_id, user_id, user_name)
             )
+            row = cursor.fetchone()
             self._db.connection.commit()
-            logger.info(
-                f"Request: Departure {departure} Arrival {arrival} Date {date} Time {time}"
-                f"Chat_id {chat_id} User_id {user_id} User_name {user_name} added successfully"
+
+            request_id = int(row[0]) if row else None
+            logger.debug(
+                "Request saved (id=%s): %s -> %s %s %s chat_id=%s user_id=%s",
+                request_id,
+                departure,
+                arrival,
+                date,
+                time,
+                chat_id,
+                user_id,
             )
-            return None
+            return request_id
+
+    def get_request_by_id(self, request_id: int) -> dict | None:
+        query = sql.SQL(
+            """
+            SELECT id,
+                   departure_station,
+                   arrival_station,
+                   travel_date,
+                   travel_time,
+                   chat_id,
+                   user_id,
+                   user_name,
+                   is_active
+            FROM ticket_requests
+            WHERE id = %s
+            """
+        )
+        with self._db.connection.cursor() as cursor:
+            cursor.execute(query, (request_id,))
+            row = cursor.fetchone()
+            if row is None:
+                return None
+            return dict(row)
 
     def get_active_requests(self) -> list[dict]:
         query = sql.SQL("""SELECT id,
@@ -126,7 +177,7 @@ class TicketRequestRepository:
         with self._db.connection.cursor() as cursor:
             cursor.execute(query, (departure, arrival, date, time, chat_id))
             self._db.connection.commit()
-            logger.info(
+            logger.debug(
                 f"Request: Departure {departure} Arrival {arrival} Date {date} Time {time} set inactive successfully"
             )
 
@@ -141,7 +192,7 @@ class TicketRequestRepository:
             cursor.execute(query, (chat_id,))
             updated_rows = cursor.rowcount
             self._db.connection.commit()
-            logger.info(f"Updated {updated_rows} requests for chat_id {chat_id}")
+            logger.debug(f"Updated {updated_rows} requests for chat_id {chat_id}")
             return updated_rows
 
     def get_chats_by_ticket_params(
@@ -156,3 +207,52 @@ class TicketRequestRepository:
             cursor.execute(query, (departure, arrival, date, time))
             result = cursor.fetchall()
             return [row[0] for row in result]
+
+    def add_favorite_ticket(
+        self, departure: str, arrival: str, travel_time: str, user_id: int
+    ) -> None:
+        query = sql.SQL(
+            """
+            INSERT INTO favorite_tickets
+            (departure_station,
+             arrival_station,
+             travel_time,
+             user_id)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT DO NOTHING
+            """
+        )
+        with self._db.connection.cursor() as cursor:
+            cursor.execute(query, (departure, arrival, travel_time, user_id))
+
+            query = sql.SQL(
+                """
+                SELECT id
+                FROM favorite_tickets
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+                """
+            )
+            cursor.execute(query, (user_id,))
+            fav_ticket_ids = [row[0] for row in cursor.fetchall()]
+
+            if len(fav_ticket_ids) > settings.favorite_tickets_amount:
+                delete_ids = fav_ticket_ids[settings.favorite_tickets_amount :]
+                cursor.execute(
+                    sql.SQL("DELETE FROM favorite_tickets WHERE id = ANY(%s)"),
+                    (delete_ids,),
+                )
+
+            self._db.connection.commit()
+            logger.debug("Favorite ticket added successfully")
+
+    def get_favorite_tickets(self, user_id: int) -> list[dict]:
+        query = sql.SQL("""SELECT departure_station,
+                                  arrival_station,
+                                  travel_time
+                           FROM favorite_tickets
+                           WHERE user_id = %s
+                        """)
+        with self._db.connection.cursor() as cursor:
+            cursor.execute(query, (user_id,))
+            return [dict(row) for row in cursor.fetchall()]

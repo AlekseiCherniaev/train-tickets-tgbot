@@ -9,6 +9,7 @@ from telegram.ext import (
     MessageHandler,
     filters,
     Application,
+    CallbackQueryHandler,
 )
 
 from app.db.database_connection import PostgresDatabaseConnection
@@ -20,6 +21,9 @@ from app.handlers import (
     start_handler,
     get_reply_markup,
     see_active_tickets_handler,
+    get_favorite_tickets_handler,
+    add_favorite_ticket_handler,
+    FAVORITE_CALLBACK_PREFIX,
 )
 from app.messages import (
     ANOTHER_TICKET_BUTTON,
@@ -27,6 +31,7 @@ from app.messages import (
     target_block_not_found_error_message,
     tickets_found_message,
     SEE_ALL_TICKETS_BUTTON,
+    FAVORITE_TICKETS_BUTTON,
 )
 from app.settings import settings
 from app.ticket_parser import TicketParser
@@ -173,18 +178,25 @@ class TicketBot:
         CANCEL_KEYWORDS = filters.Regex(CANCEL_BUTTON)
         ADD_TICKET_KEYWORDS = filters.Regex(ANOTHER_TICKET_BUTTON)
         SEE_ALL_TICKETS = filters.Regex(SEE_ALL_TICKETS_BUTTON)
+        FAVORITE_TICKETS = filters.Regex(FAVORITE_TICKETS_BUTTON)
+
         TEXT_FILTER = (
             filters.TEXT
             & ~filters.COMMAND
             & ~CANCEL_KEYWORDS
             & ~SEE_ALL_TICKETS
+            & ~FAVORITE_TICKETS
             & ~ADD_TICKET_KEYWORDS
         )
         handlers = [
             CommandHandler("start", start_handler),
+            CallbackQueryHandler(
+                add_favorite_ticket_handler, pattern=f"^{FAVORITE_CALLBACK_PREFIX}"
+            ),
             MessageHandler(TEXT_FILTER, enter_ticket_handler),
             MessageHandler(CANCEL_KEYWORDS, cancel_handler),
             MessageHandler(SEE_ALL_TICKETS, see_active_tickets_handler),
+            MessageHandler(FAVORITE_TICKETS, get_favorite_tickets_handler),
             MessageHandler(ADD_TICKET_KEYWORDS, add_another_ticket_handler),
         ]
         for handler in handlers:

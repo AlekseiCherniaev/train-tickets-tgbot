@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     bot_token: str = "BOT_TOKEN"
     log_level: str = "INFO"
     date_format: str = "%Y-%m-%d"
-
+    favorite_tickets_amount: int = 7
     retry_time: float = 7.0  # seconds for another ticket finding retry
     request_timeout: float = 7
     retry_attempts: int = 8
