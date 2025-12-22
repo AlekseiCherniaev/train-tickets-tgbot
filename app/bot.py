@@ -24,6 +24,8 @@ from app.handlers import (
     get_favorite_tickets_handler,
     add_favorite_ticket_handler,
     FAVORITE_CALLBACK_PREFIX,
+    see_available_tickets,
+    see_available_tickets_info,
 )
 from app.messages import (
     ANOTHER_TICKET_BUTTON,
@@ -32,6 +34,7 @@ from app.messages import (
     tickets_found_message,
     SEE_ALL_TICKETS_BUTTON,
     FAVORITE_TICKETS_BUTTON,
+    SEE_AVAILABLE_TICKETS_BUTTON,
 )
 from app.settings import settings
 from app.ticket_parser import TicketParser
@@ -99,8 +102,9 @@ class TicketBot:
                             raise Exception(f"HTTP error {response.status}")
 
                         ticket_parser = TicketParser(response=await response.text())
+                        requested_time_str = str(request_data[3].strftime("%H:%M"))
                         train_block = ticket_parser.get_train_block(
-                            train_time=str(request_data[3].strftime("%H:%M"))
+                            train_time=requested_time_str
                         )
                         if not train_block:
                             logger.bind(params=request_data).debug(
@@ -179,6 +183,9 @@ class TicketBot:
         ADD_TICKET_KEYWORDS = filters.Regex(ANOTHER_TICKET_BUTTON)
         SEE_ALL_TICKETS = filters.Regex(SEE_ALL_TICKETS_BUTTON)
         FAVORITE_TICKETS = filters.Regex(FAVORITE_TICKETS_BUTTON)
+        SEE_AVAILABLE_TICKETS = filters.Regex(SEE_AVAILABLE_TICKETS_BUTTON)
+
+        SEE_AVAILABLE_TICKETS_INPUT = filters.Regex(r"^\S+\s+\S+\s+\d{4}-\d{2}-\d{2}$")
 
         TEXT_FILTER = (
             filters.TEXT
@@ -187,12 +194,16 @@ class TicketBot:
             & ~SEE_ALL_TICKETS
             & ~FAVORITE_TICKETS
             & ~ADD_TICKET_KEYWORDS
+            & ~SEE_AVAILABLE_TICKETS
+            & ~SEE_AVAILABLE_TICKETS_INPUT
         )
         handlers = [
             CommandHandler("start", start_handler),
             CallbackQueryHandler(
                 add_favorite_ticket_handler, pattern=f"^{FAVORITE_CALLBACK_PREFIX}"
             ),
+            MessageHandler(SEE_AVAILABLE_TICKETS_INPUT, see_available_tickets),
+            MessageHandler(SEE_AVAILABLE_TICKETS, see_available_tickets_info),
             MessageHandler(TEXT_FILTER, enter_ticket_handler),
             MessageHandler(CANCEL_KEYWORDS, cancel_handler),
             MessageHandler(SEE_ALL_TICKETS, see_active_tickets_handler),

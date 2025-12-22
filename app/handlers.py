@@ -25,6 +25,8 @@ from app.messages import (
     favorite_tickets_message,
     FAVORITE_TICKETS_TEXT,
     ADD_FAVORITE_TICKET_TEXT,
+    SEE_AVAILABLE_TICKETS_TEXT,
+    see_available_tickets_message,
 )
 from app.ticket_parser import TicketParser
 from app.utils import (
@@ -40,17 +42,13 @@ logger = structlog.get_logger(__name__)
 FAVORITE_CALLBACK_PREFIX = "favorite_route:"
 
 
-def _make_favorite_callback_data(request_id: int) -> str:
-    return f"{FAVORITE_CALLBACK_PREFIX}{request_id}"
-
-
 def make_add_favorite_inline_markup(request_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
                     text=ADD_FAVORITE_TICKET_TEXT,
-                    callback_data=_make_favorite_callback_data(request_id),
+                    callback_data=f"{FAVORITE_CALLBACK_PREFIX}{request_id}",
                 )
             ]
         ]
@@ -60,6 +58,7 @@ def make_add_favorite_inline_markup(request_id: int) -> InlineKeyboardMarkup:
 def get_reply_markup() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
+            [SEE_AVAILABLE_TICKETS_TEXT],
             [ADD_TICKET_TEXT, SEE_ALL_TICKETS_TEXT],
             [CANCEL_TICKETS_TEXT, FAVORITE_TICKETS_TEXT],
         ],
@@ -73,11 +72,6 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_html(
         f"{start_message}{get_example_routes_str()}", reply_markup=get_reply_markup()
     )
-    logger.bind(
-        user_id=update.effective_user.id,
-        username=update.effective_user.username,
-        chat_id=update.message.chat_id,
-    ).info(f"User {update.effective_user.id} started bot")
 
 
 async def enter_ticket_handler(
@@ -90,20 +84,22 @@ async def enter_ticket_handler(
             f"{invalid_input_amount_message}{get_example_routes_str()}",
             reply_markup=get_reply_markup(),
         )
-        logger.bind(params=update.message.text).debug("Wrong ticket params")  # type: ignore
+        logger.bind(params=update.message.text).debug("Wrong ticket params")
         return None
 
+    departure_station, arrival_station, travel_date, train_time = params
+
     if not validate_time_input(
-        date_str=params[2],
-        time_str=params[3],
+        date_str=travel_date,
+        time_str=train_time,
         chat_id=update.message.chat_id,
     ):
-        await update.message.reply_html(  # type: ignore
+        await update.message.reply_html(
             f"{invalid_time_format_message}{get_example_routes_str()}",
             reply_markup=get_reply_markup(),
         )
         logger.bind(
-            date_str=params[2], time_str=params[3], chat_id=update.message.chat_id
+            date_str=travel_date, time_str=train_time, chat_id=update.message.chat_id
         ).debug("Wrong date or time format")
         return None
 
@@ -114,7 +110,11 @@ async def enter_ticket_handler(
                 raise Exception(f"HTTP error {response.status}")
 
             ticket_parser = TicketParser(response=await response.text())
-            if not ticket_parser.validate_rzd_response(params, update.message.chat_id):
+            if not ticket_parser.validate_rzd_response(
+                chat_id=update.message.chat_id
+            ) or not ticket_parser.validate_train_time(
+                train_time=train_time, chat_id=update.message.chat_id
+            ):
                 await update.message.reply_html(
                     f"{error_finding_train_message}{get_example_routes_str()}",
                     reply_markup=get_reply_markup(),
@@ -125,26 +125,26 @@ async def enter_ticket_handler(
             logger.bind(error=str(e), chat_id=update.message.chat_id).error(
                 "Ticket checking error"
             )
-            await update.message.reply_html(  # type: ignore
-                request_error_message.format(params[0], params[1]),
+            await update.message.reply_html(
+                request_error_message.format(departure_station, arrival_station),
                 reply_markup=get_reply_markup(),
             )
             return None
 
     ticket_repo: TicketRequestRepository = context.bot_data["ticket_repo"]
     request_id = ticket_repo.add_request(
-        departure=params[0],
-        arrival=params[1],
-        date=params[2],
-        time=params[3],
+        departure=departure_station,
+        arrival=arrival_station,
+        date=travel_date,
+        time=train_time,
         chat_id=update.message.chat_id,
         user_id=update.effective_user.id,
-        user_name=update.effective_user.username,  # type: ignore
+        user_name=update.effective_user.username,
     )
 
     await update.message.reply_html(
         start_finding_tickets_message.format(
-            params[0], params[1], params[2], params[3]
+            departure_station, arrival_station, travel_date, train_time
         ),
         reply_markup=(
             make_add_favorite_inline_markup(request_id)
@@ -165,10 +165,6 @@ async def cancel_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         f"{cancel_ticket_message.format(result)}{get_example_routes_str()}",
         reply_markup=get_reply_markup(),
     )
-    logger.bind(
-        user_id=update.effective_user.id,
-        chat_id=update.message.chat_id,
-    ).debug(f"User {update.effective_user.id} cancelled {result} tickets")
 
 
 async def add_another_ticket_handler(
@@ -179,10 +175,6 @@ async def add_another_ticket_handler(
         f"{add_ticket_message}{get_example_routes_str()}",
         reply_markup=get_reply_markup(),
     )
-    logger.bind(
-        user_id=update.effective_user.id,
-        chat_id=update.message.chat_id,
-    ).debug(f"User {update.effective_user.id} add ticket")
 
 
 async def see_active_tickets_handler(
@@ -207,10 +199,6 @@ async def see_active_tickets_handler(
         f"{see_all_tickets_message}{tickets_str}",
         reply_markup=get_reply_markup(),
     )
-    logger.bind(
-        user_id=update.effective_user.id,
-        chat_id=update.message.chat_id,
-    ).debug(f"User {update.effective_user.id} see all tickets")
 
 
 async def add_favorite_ticket_handler(
@@ -265,7 +253,106 @@ async def get_favorite_tickets_handler(
         f"{favorite_tickets_message}{fav_tickets_str}",
         reply_markup=get_reply_markup(),
     )
-    logger.bind(
-        user_id=update.effective_user.id,
-        chat_id=update.message.chat_id,
-    ).debug(f"User {update.effective_user.id} see favorite tickets")
+
+
+async def see_available_tickets_info(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    await update.message.reply_html(
+        f"{see_available_tickets_message}",
+        reply_markup=get_reply_markup(),
+    )
+
+
+async def see_available_tickets(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Handle input like: 'Минск-Пассажирский Пинск 2025-12-22'."""
+    params = (update.message.text or "").split()
+    if len(params) != 3:
+        await update.message.reply_html(
+            "Нужен формат: <code>Откуда Куда ГГГГ-ММ-ДД</code>",
+            reply_markup=get_reply_markup(),
+        )
+        return None
+
+    departure_station, arrival_station, travel_date = params
+    async with aiohttp.ClientSession() as session:
+        try:
+            response = await make_get_request(
+                params=params,
+                session=session,
+            )
+            if response.status != 200:
+                raise Exception(f"HTTP error {response.status}")
+
+            ticket_parser = TicketParser(response=await response.text())
+            if not ticket_parser.validate_rzd_response(chat_id=update.message.chat_id):
+                await update.message.reply_html(
+                    f"{error_finding_train_message}{get_example_routes_str()}",
+                    reply_markup=get_reply_markup(),
+                )
+                return None
+
+            parsed = ticket_parser.parse_response()
+            trains: list[dict] = parsed.get("trains", [])
+            if not trains:
+                await update.message.reply_html(
+                    "Поездов на эту дату не найдено",
+                    reply_markup=get_reply_markup(),
+                )
+                return None
+
+            header_lines: list[str] = [
+                f"<b>{departure_station} → {arrival_station}</b>",
+                f"<b>Дата:</b> {travel_date}",
+            ]
+
+            rows: list[str] = []
+            for t in trains:
+                dep = str(t.get("departure_time", "")).strip()
+                arr = str(t.get("arrival_time", "")).strip()
+                time_range = dep
+                if arr:
+                    time_range = f"{dep}–{arr}"
+
+                total_places = int(t.get("total_places", 0) or 0)
+                places = t.get("places", [])
+
+                if not places or total_places <= 0:
+                    rows.append(f"• <b>{time_range}</b> — мест нет")
+                    continue
+
+                # Keep stable order but skip empty names.
+                details_parts: list[str] = []
+                for p in places:
+                    name = str(p.get("name", "")).strip()
+                    qty = p.get("quantity")
+                    if not name or qty is None:
+                        continue
+                    details_parts.append(f"{name}: <b>{qty}</b>")
+
+                details = "; ".join(details_parts)
+                if details:
+                    rows.append(
+                        f"• <b>{time_range}</b> — <b>{total_places}</b> мест ({details})"
+                    )
+                else:
+                    rows.append(f"• <b>{time_range}</b> — <b>{total_places}</b> мест")
+
+            await update.message.reply_html(
+                "\n".join([*header_lines, *rows]),
+                reply_markup=get_reply_markup(),
+                disable_web_page_preview=True,
+            )
+            return None
+
+        except Exception as e:
+            logger.bind(error=str(e), chat_id=update.message.chat_id).error(
+                "See available tickets error"
+            )
+            await update.message.reply_html(
+                "Ошибка при запросе доступных билетов. Попробуйте позже.",
+                reply_markup=get_reply_markup(),
+            )
+            return None

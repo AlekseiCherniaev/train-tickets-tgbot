@@ -3,11 +3,13 @@ ADD_TICKET_TEXT = "Добавить билет"
 SEE_ALL_TICKETS_TEXT = "Просмотреть активные поиски"
 FAVORITE_TICKETS_TEXT = "Избранные маршруты"
 ADD_FAVORITE_TICKET_TEXT = "⭐️ Добавить маршрут в избранные"
+SEE_AVAILABLE_TICKETS_TEXT = "Просмотреть доступные билеты и время"
 
 CANCEL_BUTTON = f"^{CANCEL_TICKETS_TEXT}"
 ANOTHER_TICKET_BUTTON = f"^{ADD_TICKET_TEXT}"
 SEE_ALL_TICKETS_BUTTON = f"^{SEE_ALL_TICKETS_TEXT}"
 FAVORITE_TICKETS_BUTTON = f"^{FAVORITE_TICKETS_TEXT}"
+SEE_AVAILABLE_TICKETS_BUTTON = f"^{SEE_AVAILABLE_TICKETS_TEXT}"
 
 target_block_not_found_error_message = (
     "❌ Ошибка при проверке билетов {} → {}\n"
@@ -78,3 +80,10 @@ add_ticket_message = (
 see_all_tickets_message = "🔍 <b>Текущие поиски:</b>\n"
 
 favorite_tickets_message = "💖 <b>Ваши избранные маршруты (можно скопировать):</b>\n"
+
+see_available_tickets_message = (
+    "🔍 Для просмотра доступных билетов\nвведите маршрут и дату в формате:\n"
+    "<b>Откуда Куда Дата(ГГГГ-ММ-ДД)</b>\n"
+    "🔹 <b>Пример:</b>\n"
+    "<code>Минск-Пассажирский Толочин 2025-12-31</code>"
+)
