@@ -21,7 +21,6 @@ class TicketParser:
 
     @staticmethod
     def check_ticket_availability(train_block: dict):
-        # TODO check invalid and velo
         return train_block.get("data-ticket_selling_allowed", "").lower() == "true"
 
     def validate_rzd_response(self, chat_id: int) -> bool:

@@ -12,6 +12,7 @@ from telegram.ext import (
     CallbackQueryHandler,
 )
 
+from app.browser_service import BrowserService
 from app.db.database_connection import PostgresDatabaseConnection
 from app.db.ticket_request_repo import TicketRequestRepository
 from app.handlers import (
@@ -79,8 +80,34 @@ class TicketBot:
         asyncio.create_task(TicketBot.check_ticket_availability(application))
 
     @staticmethod
+    async def _send_error_message(request_data, application):
+        active_chats = application.bot_data["ticket_repo"].get_chats_by_ticket_params(
+            departure=request_data[0],
+            arrival=request_data[1],
+            date=request_data[2],
+            time=request_data[3],
+        )
+        for chat_id in active_chats:
+            await application.bot.send_message(
+                chat_id=chat_id,
+                text=target_block_not_found_error_message.format(
+                    request_data[0], request_data[1]
+                ),
+                reply_markup=get_reply_markup(),
+            )
+            application.bot_data["ticket_repo"].set_request_inactive(
+                departure=request_data[0],
+                arrival=request_data[1],
+                date=request_data[2],
+                time=request_data[3],
+                chat_id=chat_id,
+            )
+        logger.bind(params=request_data).debug("Target block not found")
+
+    @staticmethod
     async def check_ticket_availability(application: Application) -> None:  # type: ignore
         while True:
+            await asyncio.sleep(calculate_retry_time())
             logger.info("Checking ticket availability...")
             unique_requests = {
                 (
@@ -95,6 +122,7 @@ class TicketBot:
             async with aiohttp.ClientSession() as session:
                 try:
                     for request_data in unique_requests:
+                        await asyncio.sleep(calculate_retry_time(0.66))
                         response = await make_get_request(
                             params=request_data, session=session
                         )
@@ -107,72 +135,58 @@ class TicketBot:
                             train_time=requested_time_str
                         )
                         if not train_block:
-                            logger.bind(params=request_data).debug(
-                                "Target block not found"
+                            await TicketBot._send_error_message(
+                                request_data=request_data, application=application
                             )
-                            active_chats = application.bot_data[
-                                "ticket_repo"
-                            ].get_chats_by_ticket_params(
-                                departure=request_data[0],
-                                arrival=request_data[1],
-                                date=request_data[2],
-                                time=request_data[3],
-                            )
-                            for chat_id in active_chats:
-                                await application.bot.send_message(
-                                    chat_id=chat_id,
-                                    text=target_block_not_found_error_message.format(
-                                        request_data[0], request_data[1]
-                                    ),
-                                    reply_markup=get_reply_markup(),
-                                )
-                                application.bot_data[
-                                    "ticket_repo"
-                                ].set_request_inactive(
-                                    departure=request_data[0],
-                                    arrival=request_data[1],
-                                    date=request_data[2],
-                                    time=request_data[3],
-                                    chat_id=chat_id,
-                                )
-
-                            await asyncio.sleep(calculate_retry_time(1))
                             continue
 
                         is_available = ticket_parser.check_ticket_availability(
                             train_block=train_block
                         )
-                        if is_available:
-                            url = f"https://pass.rw.by/ru/route/?from={request_data[0]}&to={request_data[1]}&date={request_data[2]}"
-                            active_chats = application.bot_data[
-                                "ticket_repo"
-                            ].get_chats_by_ticket_params(
-                                departure=request_data[0],
-                                arrival=request_data[1],
-                                date=request_data[2],
-                                time=request_data[3],
-                            )
-                            for chat_id in active_chats:
-                                await application.bot.send_message(
-                                    chat_id=chat_id,
-                                    text=tickets_found_message.format(
-                                        request_data[0],
-                                        request_data[1],
-                                        request_data[2],
-                                        request_data[3],
-                                        url,
-                                    ),
-                                    reply_markup=get_reply_markup(),
-                                )
-                            logger.bind(params=request_data).debug("Tickets found")
-                        else:
+                        if not is_available:
                             logger.bind(params=request_data).debug("No tickets found")
-                        await asyncio.sleep(calculate_retry_time(1))
+                            continue
 
-                    await asyncio.sleep(calculate_retry_time())
+                        has_only_disabled_places = (
+                            await BrowserService().has_only_disabled_places(
+                                from_station=request_data[0],
+                                to_station=request_data[1],
+                                date=str(request_data[2]),
+                                train_time=requested_time_str,
+                            )
+                        )
+                        if has_only_disabled_places:
+                            logger.bind(params=request_data).debug(
+                                "Tickets found, but places only for disabled"
+                            )
+                            continue
+
+                        active_chats = application.bot_data[
+                            "ticket_repo"
+                        ].get_chats_by_ticket_params(
+                            departure=request_data[0],
+                            arrival=request_data[1],
+                            date=request_data[2],
+                            time=request_data[3],
+                        )
+                        url = f"https://pass.rw.by/ru/route/?from={request_data[0]}&to={request_data[1]}&date={request_data[2]}"
+                        for chat_id in active_chats:
+                            await application.bot.send_message(
+                                chat_id=chat_id,
+                                text=tickets_found_message.format(
+                                    request_data[0],
+                                    request_data[1],
+                                    request_data[2],
+                                    request_data[3],
+                                    url,
+                                ),
+                                reply_markup=get_reply_markup(),
+                            )
+                        logger.bind(params=request_data).debug("Tickets found")
 
                 except Exception as e:
                     logger.bind(error=str(e)).error("Ticket checking error")
+                    await asyncio.sleep(calculate_retry_time(1))
 
     def add_handlers(self) -> None:
         """Register all handlers with the application."""
@@ -216,5 +230,6 @@ class TicketBot:
         logger.info("All handlers added")
 
     @staticmethod
-    async def shutdown(application: Application) -> None:  # type: ignore
+    async def shutdown(application: Application) -> None:
+        await BrowserService.close()
         logger.info("Shutdown complete")
