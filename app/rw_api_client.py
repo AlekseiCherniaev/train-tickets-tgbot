@@ -10,8 +10,9 @@ from tenacity import (
     wait_exponential,
 )
 
+from app.http_session import HttpSession
 from app.interfaces import IRWApiClient
-from app.schemas import TicketRequest
+from app.schemas import ScheduleRequest
 from app.settings import ProxySettings, RWApiSettings
 
 
@@ -20,11 +21,11 @@ class AsyncRWApiClient(IRWApiClient):
 
     def __init__(
         self,
-        session: aiohttp.ClientSession,
+        http_session: HttpSession,
         rwapi_settings: RWApiSettings,
         proxy_settings: ProxySettings,
     ) -> None:
-        self.session = session
+        self.http_session = http_session
         self.rwapi_settings = rwapi_settings
         self.proxy_settings = proxy_settings
 
@@ -42,23 +43,23 @@ class AsyncRWApiClient(IRWApiClient):
             f"{self.proxy_settings.port}"
         )
 
-    async def _fetch_schedule(self, ticket: TicketRequest) -> str:
+    async def _fetch_schedule(self, request: ScheduleRequest) -> str:
         timeout = aiohttp.ClientTimeout(
             total=self.rwapi_settings.request_timeout,
         )
 
         self.logger.debug(
             "Fetching RW schedule: %s -> %s",
-            ticket.departure_station,
-            ticket.arrival_station,
+            request.departure_station,
+            request.arrival_station,
         )
 
-        async with self.session.get(
+        async with self.http_session.session.get(
             self.BASE_URL,
             params={
-                "from": ticket.departure_station,
-                "to": ticket.arrival_station,
-                "date": ticket.travel_date,
+                "from": request.departure_station,
+                "to": request.arrival_station,
+                "date": request.travel_date,
             },
             headers=self.rwapi_settings.headers,
             timeout=timeout,
@@ -68,7 +69,7 @@ class AsyncRWApiClient(IRWApiClient):
             return await response.text()
 
     @override
-    async def fetch_schedule(self, ticket: TicketRequest) -> str:
+    async def fetch_schedule(self, request: ScheduleRequest) -> str:
         retrying = AsyncRetrying(
             stop=stop_after_attempt(self.rwapi_settings.retry_attempts),
             wait=wait_exponential(multiplier=1, min=1, max=3),
@@ -78,4 +79,4 @@ class AsyncRWApiClient(IRWApiClient):
             reraise=True,
         )
 
-        return await retrying(self._fetch_schedule, ticket)
+        return await retrying(self._fetch_schedule, request)

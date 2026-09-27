@@ -3,13 +3,7 @@ import logging
 from typing import override
 from urllib.parse import urlencode
 
-from playwright.async_api import (
-    Browser,
-    Page,
-    Playwright,
-    async_playwright,
-)
-from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import Browser, Page, Playwright, async_playwright, TimeoutError as PlaywrightTimeoutError
 
 from app.interfaces import IRWBrowserService
 from app.schemas import TicketRequest
@@ -102,7 +96,7 @@ class PlaywrightRWBrowserService(IRWBrowserService):
         )
 
     @override
-    async def has_only_disabled_places(self, ticket: TicketRequest) -> bool:
+    async def has_no_online_places(self, ticket: TicketRequest) -> bool:
         browser = await self._get_browser()
         page = await browser.new_page()
 
@@ -131,12 +125,12 @@ class PlaywrightRWBrowserService(IRWBrowserService):
             ).first
 
             if await row.count() == 0:
-                return False
+                raise RuntimeError(f"Train row not found: {ticket.travel_time}")
 
             button = row.locator("form.js-sch-item-form a.btn")
 
             if await button.count() == 0:
-                return False
+                raise RuntimeError(f"Booking button not found: {ticket.travel_time}")
 
             await button.scroll_into_view_if_needed()
 

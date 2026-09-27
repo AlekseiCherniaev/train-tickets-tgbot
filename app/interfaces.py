@@ -1,22 +1,33 @@
 from abc import ABC, abstractmethod
 
-from app.schemas import TicketRequest, TicketRequestRecord, TrainInfo
+from app.schemas import (
+    TicketRequest,
+    TicketRequestRecord,
+    TrainInfo,
+    NewTicketRequest,
+    FavoriteTicket,
+    ScheduleRequest,
+    TicketAvailabilityStatus,
+)
 
 
 class IRWClient(ABC):
     @abstractmethod
-    async def validate(self, ticket: TicketRequest) -> bool: ...
+    async def validate(self, request: TicketRequest) -> bool: ...
 
     @abstractmethod
-    async def get_trains(self, ticket: TicketRequest) -> list[TrainInfo]: ...
+    async def get_trains(self, request: ScheduleRequest) -> list[TrainInfo]: ...
 
     @abstractmethod
-    async def has_available_places(self, ticket: TicketRequest) -> bool: ...
+    async def check_availability(
+        self,
+        request: TicketRequest,
+    ) -> TicketAvailabilityStatus: ...
 
 
 class IRWApiClient(ABC):
     @abstractmethod
-    async def fetch_schedule(self, ticket: TicketRequest) -> str: ...
+    async def fetch_schedule(self, request: ScheduleRequest) -> str: ...
 
 
 class IRWBrowserService(ABC):
@@ -27,7 +38,7 @@ class IRWBrowserService(ABC):
     async def stop(self) -> None: ...
 
     @abstractmethod
-    async def has_only_disabled_places(self, ticket: TicketRequest) -> bool: ...
+    async def has_no_online_places(self, ticket: TicketRequest) -> bool: ...
 
 
 class IHTMLParser(ABC):
@@ -40,10 +51,13 @@ class IHTMLParser(ABC):
     @abstractmethod
     def parse_trains_info(self, page_html: str) -> list[TrainInfo]: ...
 
+    @abstractmethod
+    def has_errors(self, page_html: str) -> bool: ...
+
 
 class ITicketRepository(ABC):
     @abstractmethod
-    async def add_request(self, request: TicketRequestRecord) -> int: ...
+    async def add_request(self, request: NewTicketRequest) -> int: ...
 
     @abstractmethod
     async def get_request_by_id(self, request_id: int) -> TicketRequestRecord | None: ...
@@ -61,12 +75,12 @@ class ITicketRepository(ABC):
     async def deactivate_request(self, request: TicketRequest, chat_id: int) -> None: ...
 
     @abstractmethod
-    async def deactivate_requests_by_chat(self, chat_id: int) -> None: ...
+    async def deactivate_requests_by_chat(self, chat_id: int) -> int: ...
 
 
 class IFavoriteTicketRepository(ABC):
     @abstractmethod
-    async def add_favorite(self, ticket: TicketRequest, user_id: int) -> None: ...
+    async def add_favorite(self, ticket: FavoriteTicket, user_id: int) -> None: ...
 
     @abstractmethod
-    async def get_favorite(self, user_id: int) -> list[TicketRequest]: ...
+    async def get_favorites(self, user_id: int) -> list[FavoriteTicket]: ...

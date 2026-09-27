@@ -1,0 +1,2 @@
+class InvalidRouteError(Exception):
+    pass

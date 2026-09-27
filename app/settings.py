@@ -2,17 +2,17 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    bot_token: str = "BOT_TOKEN"
+    bot_token: str
     log_level: str = "INFO"
-    date_format: str = "%Y-%m-%d"
     favorite_tickets_amount: int = 7
     retry_time: float = 7.0  # seconds for another ticket finding retry
+    request_delay: float = 0.66
 
 
 class RWApiSettings(BaseSettings):
-    model_config = SettingsConfigDict(extra="ignore",  env_prefix="RW_")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="RW_")
 
     request_timeout: float = 7
     retry_attempts: int = 8
@@ -21,8 +21,11 @@ class RWApiSettings(BaseSettings):
         "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
     }
 
+
 class RWBrowserSettings(BaseSettings):
     model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
         extra="ignore",
         env_prefix="RW_BROWSER_",
     )
@@ -34,7 +37,7 @@ class RWBrowserSettings(BaseSettings):
 
 
 class ProxySettings(BaseSettings):
-    model_config = SettingsConfigDict(extra="ignore", env_prefix="PROXY_")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="PROXY_")
 
     enabled: bool = False
     login: str = ""
@@ -44,13 +47,12 @@ class ProxySettings(BaseSettings):
 
 
 class PostgresSettings(BaseSettings):
-    model_config = SettingsConfigDict(extra="ignore", env_prefix="POSTGRES_")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="POSTGRES_"
+    )
 
     user: str = "postgres"
     password: str = "postgres"
     db: str = "postgres"
     host: str = "localhost"
     port: int = 5432
-
-
-settings = Settings()

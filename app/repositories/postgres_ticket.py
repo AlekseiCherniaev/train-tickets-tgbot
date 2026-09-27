@@ -4,7 +4,7 @@ from typing import Any, Mapping, override
 
 from psycopg.rows import dict_row
 
-from app.database import PostgresDatabase
+from app.database.postgres_database import PostgresDatabase
 from app.interfaces import ITicketRepository
 from app.schemas import (
     NewTicketRequest,

@@ -128,3 +128,8 @@ class BeautifulSoupHTMLParser(IHTMLParser):
             name=name,
             amount=int(amount_text),
         )
+
+    @override
+    def has_errors(self, page_html: str) -> bool:
+        soup = self._parse_html(page_html)
+        return self._has_error_elements(soup)
