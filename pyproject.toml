@@ -6,8 +6,11 @@ requires-python = ">=3.12"
 dependencies = [
     "aiohttp>=3.12.15",
     "aioresponses>=0.7.8",
+    "beautifulsoup4>=4.15.0",
     "bs4>=0.0.2",
+    "dependency-injector>=4.49.1",
     "dotenv>=0.9.9",
+    "httpx>=0.28.1",
     "orjson>=3.11.1",
     "playwright>=1.57.0",
     "pre-commit>=4.2.0",
@@ -29,3 +32,9 @@ dev = [
 
 [tool.mypy]
 exclude = 'tests/'
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+ignore = ["I001"]
