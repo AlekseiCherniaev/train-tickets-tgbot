@@ -2,33 +2,55 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        case_sensitive=False, frozen=True, env_file=".env", env_ignore_empty=True
-    )
+    model_config = SettingsConfigDict(extra="ignore")
 
     bot_token: str = "BOT_TOKEN"
     log_level: str = "INFO"
     date_format: str = "%Y-%m-%d"
     favorite_tickets_amount: int = 7
     retry_time: float = 7.0  # seconds for another ticket finding retry
+
+
+class RWApiSettings(BaseSettings):
+    model_config = SettingsConfigDict(extra="ignore",  env_prefix="RW_")
+
     request_timeout: float = 7
     retry_attempts: int = 8
     headers: dict[str, str] = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
     }
-    # proxy settings
-    use_proxy: bool = False
-    proxy_login: str = ""
-    proxy_password: str = ""
-    proxy_host: str = ""
-    proxy_port: int = 10500
-    # db settings
-    postgres_user: str = "postgres"
-    postgres_password: str = "postgres"
-    postgres_db: str = "postgres"
-    postgres_host: str = "localhost"
-    postgres_port: int = 5432
+
+class RWBrowserSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        extra="ignore",
+        env_prefix="RW_BROWSER_",
+    )
+
+    headless: bool = True
+    navigation_timeout: int = 10_000
+    selector_timeout: int = 10_000
+    cash_only_timeout: int = 5_000
+
+
+class ProxySettings(BaseSettings):
+    model_config = SettingsConfigDict(extra="ignore", env_prefix="PROXY_")
+
+    enabled: bool = False
+    login: str = ""
+    password: str = ""
+    host: str = ""
+    port: int = 10500
+
+
+class PostgresSettings(BaseSettings):
+    model_config = SettingsConfigDict(extra="ignore", env_prefix="POSTGRES_")
+
+    user: str = "postgres"
+    password: str = "postgres"
+    db: str = "postgres"
+    host: str = "localhost"
+    port: int = 5432
 
 
 settings = Settings()
