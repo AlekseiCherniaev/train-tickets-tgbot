@@ -35,17 +35,11 @@ class TicketParser:
         return True
 
     def validate_train_time(self, train_time: str, chat_id: int) -> bool:
-        if not self.soup.find(
-            "div", class_="sch-table__time train-from-time", string=train_time
-        ):
-            logger.bind(train_time=train_time, chat_id=chat_id).debug(
-                "Departure time not found"
-            )
+        if not self.soup.find("div", class_="sch-table__time train-from-time", string=train_time):
+            logger.bind(train_time=train_time, chat_id=chat_id).debug("Departure time not found")
             return False
 
-        logger.bind(params=train_time, chat_id=chat_id).debug(
-            f"Valid train time: {train_time}"
-        )
+        logger.bind(params=train_time, chat_id=chat_id).debug(f"Valid train time: {train_time}")
         return True
 
     def parse_response(self) -> dict:
@@ -53,20 +47,14 @@ class TicketParser:
 
         for row in self.soup.select("div.sch-table__row"):
             dep_time_el = row.select_one("div.sch-table__time.train-from-time")
-            departure_time = (
-                dep_time_el.get_text(strip=True) if dep_time_el is not None else ""
-            )
+            departure_time = dep_time_el.get_text(strip=True) if dep_time_el is not None else ""
             if not departure_time:
                 continue
 
             arr_time_el = row.select_one("div.sch-table__time.train-to-time")
-            arrival_time = (
-                arr_time_el.get_text(strip=True) if arr_time_el is not None else ""
-            )
+            arrival_time = arr_time_el.get_text(strip=True) if arr_time_el is not None else ""
 
-            is_selling_allowed = (
-                row.get("data-ticket_selling_allowed", "").lower() == "true"
-            )
+            is_selling_allowed = row.get("data-ticket_selling_allowed", "").lower() == "true"
 
             places: list[dict] = []
             for ticket_item in row.select("div.sch-table__t-item"):
