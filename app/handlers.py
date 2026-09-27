@@ -42,7 +42,8 @@ from app.utils import (
     format_created_at_minsk,
     get_example_routes_str,
     get_minsk_date,
-    validate_time_input, validate_date_input,
+    validate_time_input,
+    validate_date_input,
 )
 
 logger = logging.getLogger(__name__)
@@ -388,12 +389,11 @@ class TicketHandlers:
         departure_station, arrival_station, travel_date = params
 
         if not validate_date_input(
-                travel_date,
-                self._date_format,
+            travel_date,
+            self._date_format,
         ):
             await message.reply_html(
-                "❌ Неверная дата. Используйте формат ГГГГ-ММ-ДД "
-                "и укажите сегодняшнюю или будущую дату.",
+                "❌ Неверная дата. Используйте формат ГГГГ-ММ-ДД и укажите сегодняшнюю или будущую дату.",
                 reply_markup=get_reply_markup(),
             )
             return
@@ -440,32 +440,19 @@ class TicketHandlers:
             time_range = train.departure_time
 
             if train.arrival_time:
-                time_range = (
-                    f"{train.departure_time}–{train.arrival_time}"
-                )
+                time_range = f"{train.departure_time}–{train.arrival_time}"
 
             if not train.is_selling_allowed:
-                rows.append(
-                    f"• <b>{time_range}</b> — "
-                    "продажа онлайн недоступна"
-                )
+                rows.append(f"• <b>{time_range}</b> — продажа онлайн недоступна")
                 continue
 
             if not train.places or train.total_places <= 0:
-                rows.append(
-                    f"• <b>{time_range}</b> — мест нет"
-                )
+                rows.append(f"• <b>{time_range}</b> — мест нет")
                 continue
 
-            details = "; ".join(
-                f"{place.name}: <b>{place.amount}</b>"
-                for place in train.places
-            )
+            details = "; ".join(f"{place.name}: <b>{place.amount}</b>" for place in train.places)
 
-            rows.append(
-                f"• <b>{time_range}</b> — "
-                f"<b>{train.total_places}</b> мест ({details})"
-            )
+            rows.append(f"• <b>{time_range}</b> — <b>{train.total_places}</b> мест ({details})")
 
         await message.reply_html(
             "\n".join(

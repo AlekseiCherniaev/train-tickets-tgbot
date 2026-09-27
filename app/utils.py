@@ -16,6 +16,7 @@ def format_created_at_minsk(value: datetime.datetime) -> str:
 
     return value.astimezone(MINSK_TZ).strftime("%H:%M %d-%m-%Y")
 
+
 def validate_date_input(
     date_str: str,
     date_format: str,

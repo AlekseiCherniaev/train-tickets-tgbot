@@ -313,9 +313,7 @@ class TicketBot:
             SEE_AVAILABLE_TICKETS_BUTTON,
         )
 
-        see_available_input = filters.Regex(
-            r"^\S+\s+\S+\s+\S+$"
-        )
+        see_available_input = filters.Regex(r"^\S+\s+\S+\s+\d{4}-\d{2}-\d{2}$")
 
         text_filter = (
             filters.TEXT
@@ -338,18 +336,6 @@ class TicketBot:
                 pattern=f"^{FAVORITE_CALLBACK_PREFIX}",
             ),
             MessageHandler(
-                see_available_input,
-                self._handlers.see_available_tickets,
-            ),
-            MessageHandler(
-                see_available_filter,
-                self._handlers.see_available_tickets_info,
-            ),
-            MessageHandler(
-                text_filter,
-                self._handlers.enter_ticket,
-            ),
-            MessageHandler(
                 cancel_filter,
                 self._handlers.cancel,
             ),
@@ -364,6 +350,18 @@ class TicketBot:
             MessageHandler(
                 add_ticket_filter,
                 self._handlers.add_another_ticket,
+            ),
+            MessageHandler(
+                see_available_filter,
+                self._handlers.see_available_tickets_info,
+            ),
+            MessageHandler(
+                see_available_input,
+                self._handlers.see_available_tickets,
+            ),
+            MessageHandler(
+                text_filter,
+                self._handlers.enter_ticket,
             ),
         ]
 
