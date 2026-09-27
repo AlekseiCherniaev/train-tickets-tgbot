@@ -5,21 +5,19 @@ FAVORITE_TICKETS_TEXT = "Избранные маршруты"
 ADD_FAVORITE_TICKET_TEXT = "⭐️ Добавить маршрут в избранные"
 SEE_AVAILABLE_TICKETS_TEXT = "Просмотреть доступные билеты и время"
 
-CANCEL_BUTTON = f"^{CANCEL_TICKETS_TEXT}"
-ANOTHER_TICKET_BUTTON = f"^{ADD_TICKET_TEXT}"
-SEE_ALL_TICKETS_BUTTON = f"^{SEE_ALL_TICKETS_TEXT}"
-FAVORITE_TICKETS_BUTTON = f"^{FAVORITE_TICKETS_TEXT}"
-SEE_AVAILABLE_TICKETS_BUTTON = f"^{SEE_AVAILABLE_TICKETS_TEXT}"
+CANCEL_BUTTON = f"^{CANCEL_TICKETS_TEXT}$"
+ANOTHER_TICKET_BUTTON = f"^{ADD_TICKET_TEXT}$"
+SEE_ALL_TICKETS_BUTTON = f"^{SEE_ALL_TICKETS_TEXT}$"
+FAVORITE_TICKETS_BUTTON = f"^{FAVORITE_TICKETS_TEXT}$"
+SEE_AVAILABLE_TICKETS_BUTTON = f"^{SEE_AVAILABLE_TICKETS_TEXT}$"
 
 target_block_not_found_error_message = (
-    "❌ Ошибка при проверке билетов {} → {}\n"
-    "Неверно указаны станции или время\n"
-    "Возможно поезд уже уехал\n"
-    "Попробуйте снова"
+    "❌ Поиск остановлен\n\n"
+    "Не удалось найти поезд {} → {} с указанным временем.\n"
+    "Возможно, расписание изменилось или поезд уже отправился.\n\n"
+    "Чтобы продолжить поиск, добавьте маршрут заново."
 )
-tickets_found_message = (
-    "✅ Билет появился в продаже!\n{} → {}\n{} {}\nСсылка на сайт с билетом:\n {}"
-)
+tickets_found_message = "✅ Билет появился в продаже!\n{} → {}\n{} {}\nСсылка на сайт с билетом:\n {}"
 
 start_message = (
     "🚂 <b>Поиск железнодорожных билетов для PASS RW</b>\n\n"
@@ -57,18 +55,20 @@ start_finding_tickets_message = (
     "🚂 <b>Маршрут:</b> {} → {}\n"
     "📅 <b>Дата:</b> {}\n"
     "⏰ <b>Время:</b> {}\n\n"
-    "Я сообщу вам сразу, как только билеты появятся в продаже.\n\n"
-    "❌ Для отмены поиска нажмите <b>Отмена</b>\n"
-    "➕ Для добавления нового поиска нажмите <b>Ещё один билет</b>"
+    "Я сообщу, когда билеты появятся в продаже.\n\n"
+    "❌ Чтобы остановить поиски, нажмите "
+    "<b>Отменить все поиски</b>\n"
+    "➕ Чтобы добавить ещё один маршрут, нажмите "
+    "<b>Добавить билет</b>"
 )
 
 request_error_message = "❌ Ошибка при проверке билетов {} → {} Попробуйте снова"
 
 cancel_ticket_message = (
-    "❌ <b>Отменено {} поиск(а)</b>\n\n"
+    "❌ <b>Остановлено активных поисков: {}</b>\n\n"
     "Чтобы начать новый поиск, введите:\n"
-    "<b>Откуда  Куда  Дата(ГГГГ-ММ-ДД)  Время(ЧЧ:ММ)</b>\n\n"
-    "🔹 <b>Пример (можно скопировать):</b>\n"
+    "<b>Откуда Куда Дата(ГГГГ-ММ-ДД) Время(ЧЧ:ММ)</b>\n\n"
+    "🔹 <b>Пример:</b>\n"
 )
 
 add_ticket_message = (

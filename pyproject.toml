@@ -3,29 +3,37 @@ name = "train-tickets-tgbot"
 version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.12"
+
 dependencies = [
-    "aiohttp>=3.12.15",
-    "aioresponses>=0.7.8",
-    "bs4>=0.0.2",
+    "aiohttp>=3.14.3",
+    "beautifulsoup4>=4.15.0",
+    "dependency-injector>=4.49.1",
     "dotenv>=0.9.9",
-    "orjson>=3.11.1",
-    "playwright>=1.57.0",
-    "pre-commit>=4.2.0",
-    "psycopg2-binary>=2.9.10",
-    "pydantic-settings>=2.10.1",
-    "pytest-asyncio>=1.1.0",
-    "python-telegram-bot>=22.3",
-    "structlog>=25.4.0",
-    "tenacity>=9.1.2",
-    "types-psycopg2>=2.9.21.20250809",
+    "httpx>=0.28.1",
+    "playwright>=1.63.0",
+    "psycopg-pool>=3.3.3",
+    "psycopg2-binary>=2.9.13",
+    "psycopg[binary]>=3",
+    "pydantic-settings>=2.15.0",
+    "python-telegram-bot>=22.8",
+    "tenacity>=9.1.4",
 ]
 
 [dependency-groups]
 dev = [
-    "mypy>=1.17.1",
-    "pytest>=8.4.1",
-    "ruff>=0.12.7",
+    "aioresponses>=0.7.9",
+    "mypy>=2.3.1",
+    "pre-commit>=4.6.2",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.16.9",
 ]
 
 [tool.mypy]
 exclude = 'tests/'
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+ignore = ["I001"]
