@@ -85,6 +85,7 @@ class Container(containers.DeclarativeContainer):
     bot = providers.Singleton(
         TicketBot,
         settings=settings,
+        proxy_settings=proxy_settings,
         handlers=handlers,
         rw_client=rw_client,
         ticket_repository=ticket_repository,
