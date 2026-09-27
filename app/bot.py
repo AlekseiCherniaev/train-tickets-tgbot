@@ -34,7 +34,7 @@ from app.schemas import (
     TicketAvailabilityStatus,
     TicketRequest,
 )
-from app.settings import Settings
+from app.settings import Settings, ProxySettings
 from app.utils import calculate_retry_time
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,7 @@ class TicketBot:
     def __init__(
         self,
         settings: Settings,
+        proxy_settings: ProxySettings,
         handlers: TicketHandlers,
         rw_client: IRWClient,
         ticket_repository: ITicketRepository,
@@ -53,6 +54,7 @@ class TicketBot:
         http_session: HttpSession,
     ) -> None:
         self._settings = settings
+        self._proxy_settings = proxy_settings
         self._handlers = handlers
         self._rw_client = rw_client
         self._ticket_repository = ticket_repository
@@ -66,9 +68,20 @@ class TicketBot:
         self._background_task: asyncio.Task[None] | None = None
 
     def start(self) -> None:
+        proxy_url = (
+            f"http://{self._proxy_settings.login}:"
+            f"{self._proxy_settings.password}@"
+            f"{self._proxy_settings.host}:"
+            f"{self._proxy_settings.port}"
+        )
+
         self._application = (
             ApplicationBuilder()
             .token(self._settings.bot_token)
+            .proxy(proxy_url)
+            .get_updates_proxy(proxy_url)
+            .connect_timeout(5)
+            .get_updates_connect_timeout(5)
             .post_init(self._post_init)
             .post_stop(self._post_stop)
             .build()
