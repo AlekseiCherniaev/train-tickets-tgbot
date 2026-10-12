@@ -7,14 +7,8 @@ def prepare_logger(log_level: str) -> None:
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     )
 
-    noisy_loggers = (
-        "httpx",
-        "httpcore",
-        "asyncio",
-    )
-
-    for logger_name in noisy_loggers:
-        logging.getLogger(logger_name).setLevel(logging.WARNING)
+    for name in ("httpx", "httpcore", "asyncio"):
+        logging.getLogger(name).setLevel(logging.WARNING)
 
     logging.getLogger("telegram").setLevel(logging.INFO)
-    logging.getLogger("telegram.ext").setLevel(logging.INFO)
+    logging.getLogger("telegram.ext").setLevel(logging.DEBUG)
