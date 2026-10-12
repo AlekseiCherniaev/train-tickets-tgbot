@@ -8,7 +8,9 @@ from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
     CommandHandler,
+    ContextTypes,
     MessageHandler,
+    TypeHandler,
     filters,
 )
 
@@ -58,7 +60,6 @@ class TicketBot:
         self._handlers = handlers
         self._rw_client = rw_client
         self._ticket_repository = ticket_repository
-
         self._database = database
         self._schema_initializer = schema_initializer
         self._browser = browser
@@ -90,9 +91,51 @@ class TicketBot:
         self._add_handlers()
 
         logger.info("Starting bot")
-
         self._application.run_polling(
             allowed_updates=Update.ALL_TYPES,
+        )
+
+    async def _log_telegram_error(
+        self,
+        update: object,
+        context: ContextTypes.DEFAULT_TYPE,
+    ) -> None:
+        error = context.error
+
+        if error is None:
+            logger.error(
+                "Telegram error without exception: update_type=%s",
+                type(update).__name__,
+            )
+            return
+
+        source = "polling" if update is None else "handler"
+
+        logger.error(
+            "Telegram error: source=%s type=%s message=%s",
+            source,
+            type(error).__name__,
+            error,
+            exc_info=(
+                type(error),
+                error,
+                error.__traceback__,
+            ),
+        )
+
+    async def _log_update(
+        self,
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE,
+    ) -> None:
+        chat = update.effective_chat
+        message = update.effective_message
+
+        logger.info(
+            "Telegram update received: id=%s chat=%s message=%s",
+            update.update_id,
+            chat.id if chat else None,
+            message.message_id if message else None,
         )
 
     async def _post_init(
@@ -304,6 +347,17 @@ class TicketBot:
     def _add_handlers(self) -> None:
         if self._application is None:
             raise RuntimeError("Application is not initialized")
+
+        # Global Telegram error handler
+        self._application.add_error_handler(
+            self._log_telegram_error,
+        )
+
+        # Log incoming updates before other handlers
+        self._application.add_handler(
+            TypeHandler(Update, self._log_update),
+            group=-1,
+        )
 
         cancel_filter = filters.Regex(CANCEL_BUTTON)
         add_ticket_filter = filters.Regex(ANOTHER_TICKET_BUTTON)

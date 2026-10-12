@@ -1,4 +1,5 @@
 import logging
+from time import monotonic
 
 from telegram import (
     InlineKeyboardButton,
@@ -7,6 +8,7 @@ from telegram import (
     Update,
 )
 from telegram.ext import ContextTypes
+
 from app.exceptions import InvalidRouteError
 from app.interfaces import (
     IFavoriteTicketRepository,
@@ -51,7 +53,9 @@ logger = logging.getLogger(__name__)
 FAVORITE_CALLBACK_PREFIX = "favorite_route:"
 
 
-def make_add_favorite_inline_markup(request_id: int) -> InlineKeyboardMarkup:
+def make_add_favorite_inline_markup(
+    request_id: int,
+) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [
@@ -157,7 +161,6 @@ class TicketHandlers:
                 departure_station,
                 arrival_station,
             )
-
             await message.reply_html(
                 request_error_message.format(
                     departure_station,
@@ -213,12 +216,27 @@ class TicketHandlers:
         update: Update,
         context: ContextTypes.DEFAULT_TYPE,
     ) -> None:
-        if update.message is None:
+        message = update.message
+
+        if message is None:
             return
 
-        await update.message.reply_html(
+        started_at = monotonic()
+
+        logger.info(
+            "Add ticket handler started: chat=%s",
+            message.chat_id,
+        )
+
+        await message.reply_html(
             f"{add_ticket_message}{get_example_routes_str(self._date_format)}",
             reply_markup=get_reply_markup(),
+        )
+
+        logger.info(
+            "Add ticket response sent: chat=%s elapsed=%.2fs",
+            message.chat_id,
+            monotonic() - started_at,
         )
 
     async def see_active_tickets(
@@ -231,8 +249,22 @@ class TicketHandlers:
         if message is None:
             return
 
+        started_at = monotonic()
+
+        logger.info(
+            "Active tickets handler started: chat=%s",
+            message.chat_id,
+        )
+
         tickets = await self._ticket_repository.get_active_requests_by_chat(
             message.chat_id,
+        )
+
+        logger.info(
+            "Active tickets fetched: chat=%s count=%s elapsed=%.2fs",
+            message.chat_id,
+            len(tickets),
+            monotonic() - started_at,
         )
 
         if not tickets:
@@ -254,6 +286,12 @@ class TicketHandlers:
         await message.reply_html(
             f"{see_all_tickets_message}{tickets_text}",
             reply_markup=get_reply_markup(),
+        )
+
+        logger.info(
+            "Active tickets response sent: chat=%s elapsed=%.2fs",
+            message.chat_id,
+            monotonic() - started_at,
         )
 
     async def add_favorite_ticket(
