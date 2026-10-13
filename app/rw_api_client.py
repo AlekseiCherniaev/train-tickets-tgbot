@@ -7,7 +7,7 @@ from tenacity import (
     AsyncRetrying,
     retry_if_exception_type,
     stop_after_attempt,
-    wait_random,
+    wait_exponential,
 )
 
 from app.http_session import HttpSession
@@ -32,13 +32,8 @@ class AsyncRWApiClient(IRWApiClient):
         self.logger = logging.getLogger(__name__)
         self.logger.info("Initializing `%s`", self.__class__.__name__)
 
-        self.logger.info(
-            "RW API proxy enabled: %s",
-            self.rwapi_settings.use_proxy and self.proxy_settings.enabled,
-        )
-
     def _get_proxy_url(self) -> str | None:
-        if not (self.proxy_settings.enabled and self.rwapi_settings.use_proxy):
+        if not self.proxy_settings.enabled:
             return None
 
         return (
@@ -76,10 +71,8 @@ class AsyncRWApiClient(IRWApiClient):
     @override
     async def fetch_schedule(self, request: ScheduleRequest) -> str:
         retrying = AsyncRetrying(
-            stop=stop_after_attempt(
-                self.rwapi_settings.retry_attempts,
-            ),
-            wait=wait_random(min=0.2, max=0.5),
+            stop=stop_after_attempt(self.rwapi_settings.retry_attempts),
+            wait=wait_exponential(multiplier=1, min=1, max=3),
             retry=retry_if_exception_type(
                 (aiohttp.ClientError, asyncio.TimeoutError),
             ),
