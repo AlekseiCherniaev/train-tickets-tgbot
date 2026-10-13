@@ -7,7 +7,7 @@ from tenacity import (
     AsyncRetrying,
     retry_if_exception_type,
     stop_after_attempt,
-    wait_exponential,
+    wait_fixed,
 )
 
 from app.http_session import HttpSession
@@ -71,8 +71,10 @@ class AsyncRWApiClient(IRWApiClient):
     @override
     async def fetch_schedule(self, request: ScheduleRequest) -> str:
         retrying = AsyncRetrying(
-            stop=stop_after_attempt(self.rwapi_settings.retry_attempts),
-            wait=wait_exponential(multiplier=1, min=1, max=3),
+            stop=stop_after_attempt(
+                self.rwapi_settings.retry_attempts,
+            ),
+            wait=wait_fixed(0.3),
             retry=retry_if_exception_type(
                 (aiohttp.ClientError, asyncio.TimeoutError),
             ),

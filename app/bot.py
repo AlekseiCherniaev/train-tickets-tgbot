@@ -1,4 +1,3 @@
-
 import asyncio
 import logging
 from urllib.parse import urlencode
@@ -149,9 +148,7 @@ class TicketBot:
         await self._schema_initializer.initialize()
         await self._http_session.start()
 
-        self._background_task = asyncio.create_task(
-            self._check_ticket_availability(application)
-        )
+        self._background_task = asyncio.create_task(self._check_ticket_availability(application))
 
         logger.info("Application resources started")
 
@@ -370,9 +367,7 @@ class TicketBot:
             SEE_AVAILABLE_TICKETS_BUTTON,
         )
 
-        see_available_input = filters.Regex(
-            r"^\S+\s+\S+\s+\d{4}-\d{2}-\d{2}$"
-        )
+        see_available_input = filters.Regex(r"^\S+\s+\S+\s+\d{4}-\d{2}-\d{2}$")
 
         text_filter = (
             filters.TEXT
