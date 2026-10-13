@@ -32,8 +32,13 @@ class AsyncRWApiClient(IRWApiClient):
         self.logger = logging.getLogger(__name__)
         self.logger.info("Initializing `%s`", self.__class__.__name__)
 
+        self.logger.info(
+            "RW API proxy enabled: %s",
+            self.rwapi_settings.use_proxy and self.proxy_settings.enabled,
+        )
+
     def _get_proxy_url(self) -> str | None:
-        if not self.proxy_settings.enabled:
+        if not (self.proxy_settings.enabled and self.rwapi_settings.use_proxy):
             return None
 
         return (
