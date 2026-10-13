@@ -11,4 +11,4 @@ def prepare_logger(log_level: str) -> None:
         logging.getLogger(name).setLevel(logging.WARNING)
 
     logging.getLogger("telegram").setLevel(logging.INFO)
-    logging.getLogger("telegram.ext").setLevel(logging.DEBUG)
+    logging.getLogger("telegram.ext").setLevel(logging.INFO)

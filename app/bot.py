@@ -1,3 +1,4 @@
+
 import asyncio
 import logging
 from urllib.parse import urlencode
@@ -83,6 +84,7 @@ class TicketBot:
             .get_updates_proxy(proxy_url)
             .connect_timeout(5)
             .get_updates_connect_timeout(5)
+            .concurrent_updates(4)
             .post_init(self._post_init)
             .post_stop(self._post_stop)
             .build()
@@ -91,6 +93,7 @@ class TicketBot:
         self._add_handlers()
 
         logger.info("Starting bot")
+
         self._application.run_polling(
             allowed_updates=Update.ALL_TYPES,
         )
@@ -146,7 +149,9 @@ class TicketBot:
         await self._schema_initializer.initialize()
         await self._http_session.start()
 
-        self._background_task = asyncio.create_task(self._check_ticket_availability(application))
+        self._background_task = asyncio.create_task(
+            self._check_ticket_availability(application)
+        )
 
         logger.info("Application resources started")
 
@@ -348,12 +353,10 @@ class TicketBot:
         if self._application is None:
             raise RuntimeError("Application is not initialized")
 
-        # Global Telegram error handler
         self._application.add_error_handler(
             self._log_telegram_error,
         )
 
-        # Log incoming updates before other handlers
         self._application.add_handler(
             TypeHandler(Update, self._log_update),
             group=-1,
@@ -367,7 +370,9 @@ class TicketBot:
             SEE_AVAILABLE_TICKETS_BUTTON,
         )
 
-        see_available_input = filters.Regex(r"^\S+\s+\S+\s+\d{4}-\d{2}-\d{2}$")
+        see_available_input = filters.Regex(
+            r"^\S+\s+\S+\s+\d{4}-\d{2}-\d{2}$"
+        )
 
         text_filter = (
             filters.TEXT
