@@ -22,21 +22,17 @@ from app.handlers import (
     get_reply_markup,
 )
 from app.http_session import HttpSession
-from app.interfaces import IRWClient, ITicketRepository, IRWBrowserService
+from app.interfaces import IRWBrowserService, IRWClient, ITicketRepository
 from app.messages import (
     ANOTHER_TICKET_BUTTON,
     CANCEL_BUTTON,
     FAVORITE_TICKETS_BUTTON,
     SEE_ALL_TICKETS_BUTTON,
     SEE_AVAILABLE_TICKETS_BUTTON,
-    target_block_not_found_error_message,
     tickets_found_message,
 )
-from app.schemas import (
-    TicketAvailabilityStatus,
-    TicketRequest,
-)
-from app.settings import Settings, ProxySettings
+from app.schemas import TicketAvailabilityStatus, TicketRequest
+from app.settings import ProxySettings, Settings
 from app.utils import calculate_retry_time
 
 logger = logging.getLogger(__name__)
@@ -49,21 +45,25 @@ class TicketBot:
         proxy_settings: ProxySettings,
         handlers: TicketHandlers,
         rw_client: IRWClient,
+        background_rw_client: IRWClient,
         ticket_repository: ITicketRepository,
         database: PostgresDatabase,
         schema_initializer: PostgresSchemaInitializer,
         browser: IRWBrowserService,
         http_session: HttpSession,
+        background_http_session: HttpSession,
     ) -> None:
         self._settings = settings
         self._proxy_settings = proxy_settings
         self._handlers = handlers
         self._rw_client = rw_client
+        self._background_rw_client = background_rw_client
         self._ticket_repository = ticket_repository
         self._database = database
         self._schema_initializer = schema_initializer
         self._browser = browser
         self._http_session = http_session
+        self._background_http_session = background_http_session
 
         self._application: Application | None = None
         self._background_task: asyncio.Task[None] | None = None
@@ -92,10 +92,7 @@ class TicketBot:
         self._add_handlers()
 
         logger.info("Starting bot")
-
-        self._application.run_polling(
-            allowed_updates=Update.ALL_TYPES,
-        )
+        self._application.run_polling(allowed_updates=Update.ALL_TYPES)
 
     async def _log_telegram_error(
         self,
@@ -111,18 +108,12 @@ class TicketBot:
             )
             return
 
-        source = "polling" if update is None else "handler"
-
         logger.error(
             "Telegram error: source=%s type=%s message=%s",
-            source,
+            "polling" if update is None else "handler",
             type(error).__name__,
             error,
-            exc_info=(
-                type(error),
-                error,
-                error.__traceback__,
-            ),
+            exc_info=(type(error), error, error.__traceback__),
         )
 
     async def _log_update(
@@ -140,22 +131,17 @@ class TicketBot:
             message.message_id if message else None,
         )
 
-    async def _post_init(
-        self,
-        application: Application,
-    ) -> None:
+    async def _post_init(self, application: Application) -> None:
         await self._database.start()
         await self._schema_initializer.initialize()
         await self._http_session.start()
+        await self._background_http_session.start()
 
         self._background_task = asyncio.create_task(self._check_ticket_availability(application))
 
         logger.info("Application resources started")
 
-    async def _post_stop(
-        self,
-        application: Application,
-    ) -> None:
+    async def _post_stop(self, application: Application) -> None:
         if self._background_task is not None:
             self._background_task.cancel()
 
@@ -167,21 +153,14 @@ class TicketBot:
             self._background_task = None
 
         await self._browser.stop()
+        await self._background_http_session.stop()
         await self._http_session.stop()
         await self._database.stop()
-
         logger.info("Application resources stopped")
 
-    async def _check_ticket_availability(
-        self,
-        application: Application,
-    ) -> None:
+    async def _check_ticket_availability(self, application: Application) -> None:
         while True:
-            await asyncio.sleep(
-                calculate_retry_time(
-                    self._settings.retry_time,
-                )
-            )
+            await asyncio.sleep(calculate_retry_time(self._settings.retry_time))
 
             try:
                 await self._check_active_requests(application)
@@ -190,16 +169,9 @@ class TicketBot:
             except Exception:
                 logger.exception("Ticket checking failed")
 
-    async def _check_active_requests(
-        self,
-        application: Application,
-    ) -> None:
+    async def _check_active_requests(self, application: Application) -> None:
         records = await self._ticket_repository.get_active_requests()
-
-        unique_requests: dict[
-            tuple[str, str, str, str],
-            TicketRequest,
-        ] = {}
+        unique_requests: dict[tuple[str, str, str, str], TicketRequest] = {}
 
         for record in records:
             ticket = TicketRequest(
@@ -208,28 +180,22 @@ class TicketBot:
                 travel_date=record.travel_date,
                 travel_time=record.travel_time,
             )
-
             key = (
                 ticket.departure_station,
                 ticket.arrival_station,
                 ticket.travel_date,
                 ticket.travel_time,
             )
-
             unique_requests[key] = ticket
 
         for ticket in unique_requests.values():
-            await asyncio.sleep(
-                calculate_retry_time(
-                    self._settings.request_delay,
-                )
-            )
+            await asyncio.sleep(calculate_retry_time(self._settings.request_delay))
 
             try:
-                await self._check_ticket(
-                    ticket,
-                    application,
-                )
+                logger.debug("Background checking ticket: %s", ticket)
+                await self._check_ticket(ticket, application)
+            except asyncio.CancelledError:
+                raise
             except Exception:
                 logger.exception(
                     "Failed checking ticket %s -> %s %s %s",
@@ -239,76 +205,27 @@ class TicketBot:
                     ticket.travel_time,
                 )
 
-    async def _check_ticket(
-        self,
-        ticket: TicketRequest,
-        application: Application,
-    ) -> None:
-        status = await self._rw_client.check_availability(ticket)
+    async def _check_ticket(self, ticket: TicketRequest, application: Application) -> None:
+        status = await self._background_rw_client.check_availability(ticket)
 
         match status:
             case TicketAvailabilityStatus.INVALID:
-                await self._handle_invalid_ticket(
+                # One incomplete schedule must not deactivate an active search.
+                logger.warning(
+                    "Train not confirmed in background response; search kept active: %s",
                     ticket,
-                    application,
                 )
-
             case TicketAvailabilityStatus.UNAVAILABLE:
-                logger.debug(
-                    "No tickets available: %s",
-                    ticket,
-                )
-
+                logger.debug("No tickets available: %s", ticket)
             case TicketAvailabilityStatus.AVAILABLE:
-                await self._handle_available_ticket(
-                    ticket,
-                    application,
-                )
-
-    async def _handle_invalid_ticket(
-        self,
-        ticket: TicketRequest,
-        application: Application,
-    ) -> None:
-        chat_ids = await self._ticket_repository.get_chats_by_request(
-            ticket,
-        )
-
-        for chat_id in chat_ids:
-            try:
-                await application.bot.send_message(
-                    chat_id=chat_id,
-                    text=target_block_not_found_error_message.format(
-                        ticket.departure_station,
-                        ticket.arrival_station,
-                    ),
-                    reply_markup=get_reply_markup(),
-                )
-            except Exception:
-                logger.exception(
-                    "Failed to notify chat_id=%s about invalid ticket",
-                    chat_id,
-                )
-            finally:
-                await self._ticket_repository.deactivate_request(
-                    ticket,
-                    chat_id,
-                )
-
-        logger.debug(
-            "Ticket request became invalid: %s",
-            ticket,
-        )
+                await self._handle_available_ticket(ticket, application)
 
     async def _handle_available_ticket(
         self,
         ticket: TicketRequest,
         application: Application,
     ) -> None:
-        chat_ids = await self._ticket_repository.get_chats_by_request(
-            ticket,
-        )
-
+        chat_ids = await self._ticket_repository.get_chats_by_request(ticket)
         query = urlencode(
             {
                 "from": ticket.departure_station,
@@ -316,7 +233,6 @@ class TicketBot:
                 "date": ticket.travel_date,
             }
         )
-
         url = f"https://pass.rw.by/ru/route/?{query}"
 
         for chat_id in chat_ids:
@@ -350,10 +266,7 @@ class TicketBot:
         if self._application is None:
             raise RuntimeError("Application is not initialized")
 
-        self._application.add_error_handler(
-            self._log_telegram_error,
-        )
-
+        self._application.add_error_handler(self._log_telegram_error)
         self._application.add_handler(
             TypeHandler(Update, self._log_update),
             group=-1,
@@ -363,10 +276,7 @@ class TicketBot:
         add_ticket_filter = filters.Regex(ANOTHER_TICKET_BUTTON)
         see_all_filter = filters.Regex(SEE_ALL_TICKETS_BUTTON)
         favorite_filter = filters.Regex(FAVORITE_TICKETS_BUTTON)
-        see_available_filter = filters.Regex(
-            SEE_AVAILABLE_TICKETS_BUTTON,
-        )
-
+        see_available_filter = filters.Regex(SEE_AVAILABLE_TICKETS_BUTTON)
         see_available_input = filters.Regex(r"^\S+\s+\S+\s+\d{4}-\d{2}-\d{2}$")
 
         text_filter = (
@@ -381,30 +291,15 @@ class TicketBot:
         )
 
         telegram_handlers = [
-            CommandHandler(
-                "start",
-                self._handlers.start,
-            ),
+            CommandHandler("start", self._handlers.start),
             CallbackQueryHandler(
                 self._handlers.add_favorite_ticket,
                 pattern=f"^{FAVORITE_CALLBACK_PREFIX}",
             ),
-            MessageHandler(
-                cancel_filter,
-                self._handlers.cancel,
-            ),
-            MessageHandler(
-                see_all_filter,
-                self._handlers.see_active_tickets,
-            ),
-            MessageHandler(
-                favorite_filter,
-                self._handlers.get_favorite_tickets,
-            ),
-            MessageHandler(
-                add_ticket_filter,
-                self._handlers.add_another_ticket,
-            ),
+            MessageHandler(cancel_filter, self._handlers.cancel),
+            MessageHandler(see_all_filter, self._handlers.see_active_tickets),
+            MessageHandler(favorite_filter, self._handlers.get_favorite_tickets),
+            MessageHandler(add_ticket_filter, self._handlers.add_another_ticket),
             MessageHandler(
                 see_available_filter,
                 self._handlers.see_available_tickets_info,
@@ -413,10 +308,7 @@ class TicketBot:
                 see_available_input,
                 self._handlers.see_available_tickets,
             ),
-            MessageHandler(
-                text_filter,
-                self._handlers.enter_ticket,
-            ),
+            MessageHandler(text_filter, self._handlers.enter_ticket),
         ]
 
         for handler in telegram_handlers:

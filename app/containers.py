@@ -7,9 +7,7 @@ from app.handlers import TicketHandlers
 from app.html_parser import BeautifulSoupHTMLParser
 from app.http_session import HttpSession
 from app.playwright_browser_service import PlaywrightRWBrowserService
-from app.repositories.postgres_favorite_ticket import (
-    PostgresFavoriteTicketRepository,
-)
+from app.repositories.postgres_favorite_ticket import PostgresFavoriteTicketRepository
 from app.repositories.postgres_ticket import PostgresTicketRepository
 from app.rw_api_client import AsyncRWApiClient
 from app.rw_client import RWClient
@@ -17,6 +15,7 @@ from app.settings import (
     PostgresSettings,
     ProxySettings,
     RWApiSettings,
+    RWBackgroundApiSettings,
     RWBrowserSettings,
     Settings,
 )
@@ -26,16 +25,17 @@ class Container(containers.DeclarativeContainer):
     settings = providers.Singleton(Settings)
     postgres_settings = providers.Singleton(PostgresSettings)
     rw_api_settings = providers.Singleton(RWApiSettings)
+    background_rw_api_settings = providers.Singleton(RWBackgroundApiSettings)
     rw_browser_settings = providers.Singleton(RWBrowserSettings)
     proxy_settings = providers.Singleton(ProxySettings)
 
     http_session = providers.Singleton(HttpSession)
+    background_http_session = providers.Singleton(HttpSession)
 
     database = providers.Singleton(
         PostgresDatabase,
         settings=postgres_settings,
     )
-
     schema_initializer = providers.Singleton(
         PostgresSchemaInitializer,
         database=database,
@@ -52,14 +52,24 @@ class Container(containers.DeclarativeContainer):
         rwapi_settings=rw_api_settings,
         proxy_settings=proxy_settings,
     )
-
-    html_parser = providers.Singleton(
-        BeautifulSoupHTMLParser,
+    background_rw_api_client = providers.Singleton(
+        AsyncRWApiClient,
+        http_session=background_http_session,
+        rwapi_settings=background_rw_api_settings,
+        proxy_settings=proxy_settings,
     )
+
+    html_parser = providers.Singleton(BeautifulSoupHTMLParser)
 
     rw_client = providers.Singleton(
         RWClient,
         api=rw_api_client,
+        browser=browser,
+        parser=html_parser,
+    )
+    background_rw_client = providers.Singleton(
+        RWClient,
+        api=background_rw_api_client,
         browser=browser,
         parser=html_parser,
     )
@@ -68,7 +78,6 @@ class Container(containers.DeclarativeContainer):
         PostgresTicketRepository,
         database=database,
     )
-
     favorite_repository = providers.Singleton(
         PostgresFavoriteTicketRepository,
         database=database,
@@ -81,16 +90,17 @@ class Container(containers.DeclarativeContainer):
         ticket_repository=ticket_repository,
         favorite_repository=favorite_repository,
     )
-
     bot = providers.Singleton(
         TicketBot,
         settings=settings,
         proxy_settings=proxy_settings,
         handlers=handlers,
         rw_client=rw_client,
+        background_rw_client=background_rw_client,
         ticket_repository=ticket_repository,
         database=database,
         schema_initializer=schema_initializer,
         browser=browser,
         http_session=http_session,
+        background_http_session=background_http_session,
     )
