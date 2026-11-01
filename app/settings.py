@@ -69,7 +69,6 @@ class ProxySettings(BaseSettings):
         env_prefix="PROXY_",
     )
 
-    enabled: bool = False
     login: str = ""
     password: str = ""
     host: str = ""

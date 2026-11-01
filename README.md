@@ -23,6 +23,10 @@ You can find bot at @train_tickets_passrw_bot
 
 ### Running the Bot
 
+Copy `.env.example` to `.env` and fill in your bot token and database settings.
+Telegram and HTTP requests to pass.rw.by always use a proxy; configure
+`PROXY_LOGIN`, `PROXY_PASSWORD`, `PROXY_HOST`, and `PROXY_PORT` in `.env`.
+
 ```bash
   uv run main.py
 ```
@@ -55,6 +59,8 @@ or with docker compose
 ### Notes:
 
 - Station names and time values should match exactly with pass.rw.by
+- Searches dated before today (Europe/Minsk) are deactivated during background checks.
+- Notifications repeat on every successful availability check while the search is active.
 
 ### Screenshots:
 

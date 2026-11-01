@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import date
 from urllib.parse import urlencode
 
 from telegram import Update
@@ -13,6 +14,7 @@ from telegram.ext import (
     TypeHandler,
     filters,
 )
+from telegram.request import HTTPXRequest
 
 from app.database.postgres_database import PostgresDatabase
 from app.database.postgres_schema_initializer import PostgresSchemaInitializer
@@ -33,7 +35,8 @@ from app.messages import (
 )
 from app.schemas import TicketAvailabilityStatus, TicketRequest
 from app.settings import ProxySettings, Settings
-from app.utils import calculate_retry_time
+from app.telegram_polling import PollingLoggingBot
+from app.utils import calculate_retry_time, get_minsk_date
 
 logger = logging.getLogger(__name__)
 
@@ -78,11 +81,13 @@ class TicketBot:
 
         self._application = (
             ApplicationBuilder()
-            .token(self._settings.bot_token)
-            .proxy(proxy_url)
-            .get_updates_proxy(proxy_url)
-            .connect_timeout(5)
-            .get_updates_connect_timeout(5)
+            .bot(
+                PollingLoggingBot(
+                    token=self._settings.bot_token,
+                    request=HTTPXRequest(proxy=proxy_url, connect_timeout=5),
+                    get_updates_request=HTTPXRequest(connection_pool_size=1, proxy=proxy_url, connect_timeout=5),
+                )
+            )
             .concurrent_updates(4)
             .post_init(self._post_init)
             .post_stop(self._post_stop)
@@ -172,6 +177,7 @@ class TicketBot:
     async def _check_active_requests(self, application: Application) -> None:
         records = await self._ticket_repository.get_active_requests()
         unique_requests: dict[tuple[str, str, str, str], TicketRequest] = {}
+        today = get_minsk_date()
 
         for record in records:
             ticket = TicketRequest(
@@ -180,6 +186,11 @@ class TicketBot:
                 travel_date=record.travel_date,
                 travel_time=record.travel_time,
             )
+            if date.fromisoformat(ticket.travel_date) < today:
+                await self._ticket_repository.deactivate_request(ticket, record.chat_id)
+                logger.info("Expired ticket search deactivated: chat_id=%s ticket=%s", record.chat_id, ticket)
+                continue
+
             key = (
                 ticket.departure_station,
                 ticket.arrival_station,
