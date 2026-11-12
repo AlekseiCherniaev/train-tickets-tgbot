@@ -85,7 +85,12 @@ class TicketBot:
                 PollingLoggingBot(
                     token=self._settings.bot_token,
                     request=HTTPXRequest(proxy=proxy_url, connect_timeout=5),
-                    get_updates_request=HTTPXRequest(connection_pool_size=1, proxy=proxy_url, connect_timeout=5),
+                    get_updates_request=HTTPXRequest(
+                        connection_pool_size=8,
+                        proxy=proxy_url,
+                        connect_timeout=5,
+                        pool_timeout=1,
+                    ),
                 )
             )
             .concurrent_updates(4)
