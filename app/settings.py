@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     request_delay: float = 0.66
     check_concurrency: int = 3
     check_timeout: float = 45.0
-    retry_max_delay: float = 1800.0
+    retry_max_delay: float = 180.0
 
 
 class RWApiSettings(BaseSettings):
