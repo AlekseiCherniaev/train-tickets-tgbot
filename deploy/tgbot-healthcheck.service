@@ -1,0 +1,8 @@
+[Unit]
+Description=Train tickets bot healthcheck
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/tgbot-healthcheck
