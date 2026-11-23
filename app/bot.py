@@ -164,17 +164,38 @@ class TicketBot:
         logger.info("Application resources stopped")
 
     async def _check_ticket_availability(self, application: Application) -> None:
+        consecutive_failures = 0
+
         while True:
-            await asyncio.sleep(calculate_retry_time(self._settings.retry_time))
+            delay = calculate_retry_time(self._settings.retry_time)
+
+            if consecutive_failures:
+                delay = min(
+                    self._settings.retry_max_delay,
+                    delay * 2**consecutive_failures,
+                )
+
+            await asyncio.sleep(delay)
 
             try:
-                await self._check_active_requests(application)
+                checked, failed = await self._check_active_requests(application)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 logger.exception("Ticket checking failed")
+                consecutive_failures += 1
+                continue
 
-    async def _check_active_requests(self, application: Application) -> None:
+            if checked and failed:
+                consecutive_failures += 1
+                logger.warning(
+                    "Ticket checks failed, backing off: consecutive_failures=%s",
+                    consecutive_failures,
+                )
+            else:
+                consecutive_failures = 0
+
+    async def _check_active_requests(self, application: Application) -> tuple[int, int]:
         records = await self._ticket_repository.get_active_requests()
         unique_requests: dict[tuple[str, str, str, str], TicketRequest] = {}
         today = get_minsk_date()
@@ -200,9 +221,10 @@ class TicketBot:
             unique_requests[key] = ticket
 
         if not unique_requests:
-            return
+            return 0, 0
 
         semaphore = asyncio.Semaphore(self._settings.check_concurrency)
+        results: list[bool] = []
 
         async def check(ticket: TicketRequest) -> None:
             async with semaphore:
@@ -217,8 +239,10 @@ class TicketBot:
                 except asyncio.CancelledError:
                     raise
                 except TimeoutError:
+                    results.append(False)
                     logger.warning("Ticket check timed out: %s", ticket)
                 except Exception:
+                    results.append(False)
                     logger.exception(
                         "Failed checking ticket %s -> %s %s %s",
                         ticket.departure_station,
@@ -226,8 +250,12 @@ class TicketBot:
                         ticket.travel_date,
                         ticket.travel_time,
                     )
+                else:
+                    results.append(True)
 
         await asyncio.gather(*(check(ticket) for ticket in unique_requests.values()))
+
+        return len(results), sum(1 for success in results if not success)
 
     async def _check_ticket(self, ticket: TicketRequest, application: Application) -> None:
         status = await self._background_rw_client.check_availability(ticket)
