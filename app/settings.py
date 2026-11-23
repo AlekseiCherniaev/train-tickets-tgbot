@@ -98,6 +98,15 @@ class ProxySettings(BaseSettings):
         return f"http://{credentials}{self.host}:{self.port}"
 
 
+class RWProxySettings(ProxySettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_prefix="RW_PROXY_",
+    )
+
+
 class PostgresSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",

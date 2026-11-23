@@ -45,8 +45,8 @@ def get_example_routes_str(date_format: str) -> str:
     return f"<code>{example1}</code>\n<code>{example2}</code>\n"
 
 
-def calculate_retry_time(base_delay: float) -> float:
-    variation = base_delay * 0.25
+def calculate_retry_time(base_delay: float, jitter: float = 0.3) -> float:
+    variation = base_delay * jitter
     return random.uniform(
         base_delay - variation,
         base_delay + variation,

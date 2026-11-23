@@ -17,6 +17,7 @@ from app.settings import (
     RWApiSettings,
     RWBackgroundApiSettings,
     RWBrowserSettings,
+    RWProxySettings,
     Settings,
 )
 
@@ -28,6 +29,7 @@ class Container(containers.DeclarativeContainer):
     background_rw_api_settings = providers.Singleton(RWBackgroundApiSettings)
     rw_browser_settings = providers.Singleton(RWBrowserSettings)
     proxy_settings = providers.Singleton(ProxySettings)
+    rw_proxy_settings = providers.Singleton(RWProxySettings)
 
     http_session = providers.Singleton(HttpSession)
     background_http_session = providers.Singleton(HttpSession)
@@ -50,13 +52,13 @@ class Container(containers.DeclarativeContainer):
         AsyncRWApiClient,
         http_session=http_session,
         rwapi_settings=rw_api_settings,
-        proxy_settings=proxy_settings,
+        proxy_settings=rw_proxy_settings,
     )
     background_rw_api_client = providers.Singleton(
         AsyncRWApiClient,
         http_session=background_http_session,
         rwapi_settings=background_rw_api_settings,
-        proxy_settings=proxy_settings,
+        proxy_settings=rw_proxy_settings,
     )
 
     html_parser = providers.Singleton(BeautifulSoupHTMLParser)
