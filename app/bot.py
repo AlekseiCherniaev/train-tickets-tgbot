@@ -199,22 +199,35 @@ class TicketBot:
             )
             unique_requests[key] = ticket
 
-        for ticket in unique_requests.values():
-            await asyncio.sleep(calculate_retry_time(self._settings.request_delay))
+        if not unique_requests:
+            return
 
-            try:
-                logger.debug("Background checking ticket: %s", ticket)
-                await self._check_ticket(ticket, application)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                logger.exception(
-                    "Failed checking ticket %s -> %s %s %s",
-                    ticket.departure_station,
-                    ticket.arrival_station,
-                    ticket.travel_date,
-                    ticket.travel_time,
-                )
+        semaphore = asyncio.Semaphore(self._settings.check_concurrency)
+
+        async def check(ticket: TicketRequest) -> None:
+            async with semaphore:
+                await asyncio.sleep(calculate_retry_time(self._settings.request_delay))
+
+                try:
+                    logger.debug("Background checking ticket: %s", ticket)
+                    await asyncio.wait_for(
+                        self._check_ticket(ticket, application),
+                        timeout=self._settings.check_timeout,
+                    )
+                except asyncio.CancelledError:
+                    raise
+                except TimeoutError:
+                    logger.warning("Ticket check timed out: %s", ticket)
+                except Exception:
+                    logger.exception(
+                        "Failed checking ticket %s -> %s %s %s",
+                        ticket.departure_station,
+                        ticket.arrival_station,
+                        ticket.travel_date,
+                        ticket.travel_time,
+                    )
+
+        await asyncio.gather(*(check(ticket) for ticket in unique_requests.values()))
 
     async def _check_ticket(self, ticket: TicketRequest, application: Application) -> None:
         status = await self._background_rw_client.check_availability(ticket)

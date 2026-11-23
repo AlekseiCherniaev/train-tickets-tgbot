@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     favorite_tickets_amount: int = 7
     retry_time: float = 7.0
     request_delay: float = 0.66
+    check_concurrency: int = 3
+    check_timeout: float = 45.0
 
 
 class RWApiSettings(BaseSettings):
