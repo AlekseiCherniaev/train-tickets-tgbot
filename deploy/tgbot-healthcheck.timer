@@ -2,8 +2,7 @@
 Description=Run train tickets bot healthcheck every 5 minutes
 
 [Timer]
-OnBootSec=2min
-OnUnitActiveSec=5min
+OnCalendar=*:0/5
 AccuracySec=30s
 Persistent=true
 Unit=tgbot-healthcheck.service
