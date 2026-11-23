@@ -14,7 +14,6 @@ from telegram.ext import (
     TypeHandler,
     filters,
 )
-from telegram.request import HTTPXRequest
 
 from app.database.postgres_database import PostgresDatabase
 from app.database.postgres_schema_initializer import PostgresSchemaInitializer
@@ -36,6 +35,7 @@ from app.messages import (
 from app.schemas import TicketAvailabilityStatus, TicketRequest
 from app.settings import ProxySettings, Settings
 from app.telegram_polling import PollingLoggingBot
+from app.telegram_request import RetryingHTTPXRequest
 from app.utils import calculate_retry_time, get_minsk_date
 
 logger = logging.getLogger(__name__)
@@ -79,11 +79,11 @@ class TicketBot:
             .bot(
                 PollingLoggingBot(
                     token=self._settings.bot_token,
-                    request=HTTPXRequest(proxy=proxy_url, connect_timeout=5),
-                    get_updates_request=HTTPXRequest(
+                    request=RetryingHTTPXRequest(proxy=proxy_url, connect_timeout=3),
+                    get_updates_request=RetryingHTTPXRequest(
                         connection_pool_size=8,
                         proxy=proxy_url,
-                        connect_timeout=5,
+                        connect_timeout=3,
                         pool_timeout=1,
                     ),
                 )
