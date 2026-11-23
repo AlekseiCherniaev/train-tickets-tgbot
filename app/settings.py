@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     bot_token: str
     log_level: str = "INFO"
     favorite_tickets_amount: int = 7
-    retry_time: float = 7.0
+    retry_time: float = 10.0
     request_delay: float = 0.66
     check_concurrency: int = 3
     check_timeout: float = 45.0

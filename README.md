@@ -65,7 +65,11 @@ or with docker compose
 
 - Station names and time values should match exactly with pass.rw.by
 - Searches dated before today (Europe/Minsk) are deactivated during background checks.
-- Notifications repeat on every successful availability check while the search is active.
+- A ticket counts as available only when online sales are allowed and the train has
+  numbered seats left. Trains with unreserved seats (electric trains) are always on
+  sale, so they are never reported as a newly available ticket.
+- Notifications repeat on every successful availability check while the search is
+  active (about every `RETRY_TIME` seconds, 10 by default).
 
 ### Screenshots:
 

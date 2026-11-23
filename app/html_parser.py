@@ -61,7 +61,34 @@ class BeautifulSoupHTMLParser(IHTMLParser):
             self.logger.debug("No parent block with time %s", travel_time)
             return False
 
-        return parent_block.get("data-ticket_selling_allowed", "").lower() == "true"  # noqa
+        if parent_block.get("data-ticket_selling_allowed", "").lower() != "true":
+            return False
+
+        # An empty quantity span means the train has no numbered seats left.
+        # Trains with unreserved seats (electric trains) are always on sale, so
+        # they are not reported as a newly available ticket.
+        if self._count_seats(parent_block) == 0:
+            self.logger.debug("No numbered seats available for time %s", travel_time)
+            return False
+
+        return True
+
+    @staticmethod
+    def _count_seats(row: Tag) -> int:
+        total = 0
+
+        for item in row.select("div.sch-table__t-item"):
+            amount = item.select_one("a.sch-table__t-quant span")
+
+            if amount is None:
+                continue
+
+            text = amount.get_text(strip=True)
+
+            if text.isdigit():
+                total += int(text)
+
+        return total
 
     @override
     def parse_trains_info(self, page_html: str) -> list[TrainInfo]:
@@ -90,7 +117,7 @@ class BeautifulSoupHTMLParser(IHTMLParser):
 
         arrival_time = arrival_time_element.get_text(strip=True)
 
-        is_selling_allowed = row.get("data-ticket_selling_allowed", "").lower() == "true"  # noqa
+        is_selling_allowed = row.get("data-ticket_selling_allowed", "").lower() == "true"
 
         places: list[TrainPlace] = []
         for ticket_item in row.select("div.sch-table__t-item"):
