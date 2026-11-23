@@ -24,8 +24,13 @@ You can find bot at @train_tickets_passrw_bot
 ### Running the Bot
 
 Copy `.env.example` to `.env` and fill in your bot token and database settings.
-Telegram and HTTP requests to pass.rw.by always use a proxy; configure
-`PROXY_LOGIN`, `PROXY_PASSWORD`, `PROXY_HOST`, and `PROXY_PORT` in `.env`.
+Telegram and HTTP requests to pass.rw.by work directly by default; a proxy is
+optional and enabled only when `PROXY_HOST` is set (`PROXY_LOGIN`,
+`PROXY_PASSWORD`, `PROXY_HOST`, `PROXY_PORT`).
+
+`TELEGRAM_API_IP` pins `api.telegram.org` inside the app container. Some hosts
+cannot reach the Telegram address returned by DNS, while another Telegram
+frontend address works, so the working one is pinned via `extra_hosts`.
 
 ```bash
   uv run main.py

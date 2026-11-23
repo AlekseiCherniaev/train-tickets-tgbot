@@ -33,6 +33,11 @@ services:
     build: .
     container_name: tickets-app
     env_file: .env
+    restart: unless-stopped
+    # Some hosts cannot reach the Telegram IP that api.telegram.org resolves to,
+    # so pin a reachable Bot API address.
+    extra_hosts:
+      - "api.telegram.org:${TELEGRAM_API_IP:-149.154.167.220}"
     depends_on:
       postgres:
         condition: service_healthy

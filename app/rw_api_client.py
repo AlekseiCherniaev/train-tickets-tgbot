@@ -28,17 +28,10 @@ class AsyncRWApiClient(IRWApiClient):
         self.http_session = http_session
         self.rwapi_settings = rwapi_settings
         self.proxy_settings = proxy_settings
+        self.proxy_url = proxy_settings.build_url()
 
         self.logger = logging.getLogger(__name__)
         self.logger.info("Initializing `%s`", self.__class__.__name__)
-
-    def _get_proxy_url(self) -> str:
-        return (
-            f"http://{self.proxy_settings.login}:"
-            f"{self.proxy_settings.password}@"
-            f"{self.proxy_settings.host}:"
-            f"{self.proxy_settings.port}"
-        )
 
     async def _fetch_schedule(self, request: ScheduleRequest) -> str:
         timeout = aiohttp.ClientTimeout(
@@ -60,7 +53,7 @@ class AsyncRWApiClient(IRWApiClient):
             },
             headers=self.rwapi_settings.headers,
             timeout=timeout,
-            proxy=self._get_proxy_url(),
+            proxy=self.proxy_url,
         ) as response:
             response.raise_for_status()
             return await response.text()

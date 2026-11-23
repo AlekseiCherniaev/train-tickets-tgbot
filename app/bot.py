@@ -72,12 +72,7 @@ class TicketBot:
         self._background_task: asyncio.Task[None] | None = None
 
     def start(self) -> None:
-        proxy_url = (
-            f"http://{self._proxy_settings.login}:"
-            f"{self._proxy_settings.password}@"
-            f"{self._proxy_settings.host}:"
-            f"{self._proxy_settings.port}"
-        )
+        proxy_url = self._proxy_settings.build_url()
 
         self._application = (
             ApplicationBuilder()

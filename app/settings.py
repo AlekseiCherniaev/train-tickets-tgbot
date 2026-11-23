@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -73,6 +74,26 @@ class ProxySettings(BaseSettings):
     password: str = ""
     host: str = ""
     port: int = 10500
+
+    @field_validator("port", mode="before")
+    @classmethod
+    def _empty_port_as_default(cls, value: object) -> object:
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return 10500
+
+        return value
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.host)
+
+    def build_url(self) -> str | None:
+        if not self.is_configured:
+            return None
+
+        credentials = f"{self.login}:{self.password}@" if self.login else ""
+
+        return f"http://{credentials}{self.host}:{self.port}"
 
 
 class PostgresSettings(BaseSettings):
