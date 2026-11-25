@@ -10,3 +10,6 @@ __pycache__/
 
 # Local agent instructions — never commit
 AGENTS.md
+
+# Playwright MCP artifacts
+.playwright-mcp/
